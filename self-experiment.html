@@ -1,20 +1,173 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>My experiment</title>
+<head>
+    <title>Baby Mirror Self-Recognition</title>
+    <!-- Load jsPsych with correct paths -->
     <script src="jspsych/jspsych.js"></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css">
+    
+    <!-- Load required plugins with correct paths -->
     <script src="jspsych/plugin-html-keyboard-response.js"></script>
-    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
-  </head>
-  <body></body>
-  <script>
-    const jsPsych = initJsPsych();
+    <script src="jspsych/plugin-video-keyboard-response.js"></script>
+    <script src="jspsych/plugin-preload.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    
+    <!-- Add custom styles -->
+    <style>
+        #webcam-container {
+            width: 640px;
+            height: 480px;
+            margin: 0 auto;
+            border: 2px solid #ccc;
+        }
+        .calibration-point {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="jspsych-target"></div>
 
-    const hello_trial = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: 'Hello world!'
-    }
+    <script>
+        // Initialize jsPsych
+        const jsPsych = initJsPsych({
+            on_finish: function() {
+                console.log('Experiment completed!');
+                console.log('Data:', jsPsych.data.get().json());
+                alert('Experiment completed! Check console for data.');
+            }
+        });
 
-    jsPsych.run([hello_trial]);
-  </script>
+        // Welcome screen
+        const welcome = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h1>Welcome!</h1>
+                <p>Thank you for participating in our study about how babies view faces!</p>
+            `,
+            choices: ['Begin'],
+        };
+
+        // Calibration instructions
+        const calibrationInstructions = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Calibration</h2>
+                <p>Now we'll show your child some interesting patterns to help us track where they're looking.</p>
+            `,
+            choices: ['Start Calibration'],
+        };
+
+        // Custom calibration trial
+        const calibrationTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function() {
+                const positions = [
+                    {x: '50%', y: '50%'},  // center
+                    {x: '20%', y: '50%'},  // left
+                    {x: '80%', y: '50%'},  // right
+                    {x: '50%', y: '50%'}   // center again
+                ];
+                
+                let html = `<div style="position: relative; width: 100vw; height: 100vh;">`;
+                positions.forEach((pos, i) => {
+                    html += `
+                        <div id="cal-point-${i}" 
+                             class="calibration-point"
+                             style="left: ${pos.x}; top: ${pos.y}; display: none;">
+                        </div>`;
+                });
+                html += '</div>';
+                return html;
+            },
+            trial_duration: 12000, // 3000ms per position
+            on_load: function() {
+                let currentPoint = 0;
+                const points = document.querySelectorAll('.calibration-point');
+                
+                function showNextPoint() {
+                    points.forEach(p => p.style.display = 'none');
+                    if (currentPoint < points.length) {
+                        points[currentPoint].style.display = 'block';
+                        points[currentPoint].classList.add('animate-pulse');
+                        currentPoint++;
+                        setTimeout(showNextPoint, 3000);
+                    }
+                }
+                
+                showNextPoint();
+            }
+        };
+
+        // Mirror trial with webcam
+        const mirrorTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div id="webcam-container">
+                    <video id="webcam" autoplay playsinline></video>
+                </div>
+            `,
+            trial_duration: 15000,
+            on_load: function() {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function(stream) {
+                        const video = document.getElementById('webcam');
+                        video.srcObject = stream;
+                        
+                        const gazeData = [];
+                        const startTime = performance.now();
+                        
+                        const trackingInterval = setInterval(() => {
+                            const timeElapsed = performance.now() - startTime;
+                            gazeData.push({
+                                timestamp: timeElapsed,
+                                x: Math.random(),
+                                y: Math.random()
+                            });
+                        }, 100);
+                        
+                        setTimeout(() => {
+                            clearInterval(trackingInterval);
+                            stream.getTracks().forEach(track => track.stop());
+                            jsPsych.data.write({
+                                trial_type: 'mirror',
+                                gaze_data: gazeData
+                            });
+                        }, 15000);
+                    })
+                    .catch(function(err) {
+                        console.error("Error accessing webcam:", err);
+                        alert('Error accessing webcam. Please make sure you have granted camera permissions.');
+                    });
+            }
+        };
+
+        // Exit survey
+        const exitSurvey = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Thank you for participating!</h2>
+                <p>We are studying how babies respond to seeing themselves.</p>
+            `,
+            choices: ['Complete Study'],
+        };
+
+        // Create timeline
+        const timeline = [
+            welcome,
+            calibrationInstructions,
+            calibrationTrial,
+            mirrorTrial,
+            exitSurvey
+        ];
+
+        // Start the experiment
+        jsPsych.run(timeline);
+    </script>
+</body>
 </html>
