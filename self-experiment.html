@@ -39,15 +39,6 @@
             transform: translate(-50%, -50%);
             animation: pulse 1s infinite;
         }
-        #gaze-dot {
-            position: fixed;
-            width: 10px;
-            height: 10px;
-            background: rgba(0, 0, 255, 0.6);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1000;
-        }
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.5); }
@@ -57,7 +48,7 @@
 </head>
 <body>
     <div id="jspsych-target"></div>
-    <div id="gaze-dot"></div>
+    <audio id="chime" src="mp3/chime.mp3"></audio>
 
     <script>
         let gazeData = [];
@@ -80,6 +71,16 @@
                 webgazer.end();
             }
         });
+
+        // Welcome screen
+        const welcome = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h1>Welcome!</h1>
+                <p>Thank you for participating in our study about how babies view faces!</p>
+            `,
+            choices: ['Begin'],
+        };
 
         // Initialize WebGazer
         const initWebGazer = {
@@ -105,9 +106,10 @@
                 </div>
             `,
             choices: "NO_KEYS",
-            trial_duration: 15000,
+            trial_duration: 10000,
             on_load: function() {
                 const point = document.getElementById('calibration-point');
+                const chime = document.getElementById('chime');
                 const positions = [
                     { left: '50%', top: '50%' },  // center
                     { left: '20%', top: '50%' },  // left
@@ -121,8 +123,11 @@
                     if (currentPosition < positions.length) {
                         point.style.left = positions[currentPosition].left;
                         point.style.top = positions[currentPosition].top;
+                        // Play chime sound
+                        chime.currentTime = 0;  // Reset the audio to start
+                        chime.play().catch(e => console.log("Audio play failed:", e));
                         currentPosition++;
-                        setTimeout(movePoint, 3000); // Move every 3 seconds
+                        setTimeout(movePoint, 2000); // Move every 2 seconds
                     }
                 }
 
@@ -141,15 +146,11 @@
             choices: "NO_KEYS",
             trial_duration: 15000,
             on_load: function() {
-                const gazeDot = document.getElementById('gaze-dot');
-
-                // Start eye tracking
+                // Start eye tracking without showing the prediction
                 webgazer.setGazeListener(function(data, elapsedTime) {
                     if (data == null) return;
                     
-                    gazeDot.style.left = data.x + 'px';
-                    gazeDot.style.top = data.y + 'px';
-                    
+                    // Store gaze data without showing the dot
                     gazeData.push({
                         timestamp: Date.now(),
                         x: data.x,
@@ -204,11 +205,23 @@
             }
         };
 
+        // Exit survey
+        const exitSurvey = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Thank you for participating!</h2>
+                <p>We are studying how babies respond to seeing themselves.</p>
+            `,
+            choices: ['Complete Study'],
+        };
+
         // Create timeline
         const timeline = [
+            welcome,
             initWebGazer,
             calibrationTrial,
-            mirrorTrial
+            mirrorTrial,
+            exitSurvey
         ];
 
         // Start the experiment
