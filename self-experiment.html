@@ -2,15 +2,19 @@
 <html>
 <head>
     <title>Baby Mirror Self-Recognition</title>
-    <!-- Load jsPsych with correct paths -->
+    <!-- Load jsPsych -->
     <script src="jspsych/jspsych.js"></script>
     <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css">
     
-    <!-- Load required plugins with correct paths -->
+    <!-- Load required plugins -->
     <script src="jspsych/plugin-html-keyboard-response.js"></script>
     <script src="jspsych/plugin-video-keyboard-response.js"></script>
     <script src="jspsych/plugin-preload.js"></script>
     <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="jspsych/extension-webgazer.js"></script>
+    
+    <!-- Load WebGazer -->
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     
     <!-- Add custom styles -->
     <style>
@@ -19,92 +23,114 @@
             height: 480px;
             margin: 0 auto;
             border: 2px solid #ccc;
+            position: relative;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
         }
         .calibration-point {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 25px;
+            height: 25px;
             background: red;
             border-radius: 50%;
             transform: translate(-50%, -50%);
+            animation: pulse 1s infinite;
+        }
+        #gaze-dot {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: rgba(0, 0, 255, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.5); }
+            100% { transform: translate(-50%, -50%) scale(1); }
         }
     </style>
 </head>
 <body>
     <div id="jspsych-target"></div>
+    <div id="gaze-dot"></div>
 
     <script>
+        let gazeData = [];
+        let mediaRecorder;
+        const recordedChunks = [];
+
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
-                console.log('Experiment completed!');
-                console.log('Data:', jsPsych.data.get().json());
-                alert('Experiment completed! Check console for data.');
+                const gazeBlob = new Blob([JSON.stringify(gazeData)], { type: 'application/json' });
+                const gazeUrl = URL.createObjectURL(gazeBlob);
+                const a = document.createElement('a');
+                a.href = gazeUrl;
+                a.download = `gaze_data_${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(gazeUrl);
+                
+                webgazer.end();
             }
         });
 
-        // Welcome screen
-        const welcome = {
+        // Initialize WebGazer
+        const initWebGazer = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <h1>Welcome!</h1>
-                <p>Thank you for participating in our study about how babies view faces!</p>
+                <h2>Eye Tracking Setup</h2>
+                <p>We'll set up eye tracking with automatic calibration. Click begin when ready.</p>
             `,
             choices: ['Begin'],
-        };
-
-        // Calibration instructions
-        const calibrationInstructions = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <h2>Calibration</h2>
-                <p>Now we'll show your child some interesting patterns to help us track where they're looking.</p>
-            `,
-            choices: ['Start Calibration'],
-        };
-
-        // Custom calibration trial
-        const calibrationTrial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: function() {
-                const positions = [
-                    {x: '50%', y: '50%'},  // center
-                    {x: '20%', y: '50%'},  // left
-                    {x: '80%', y: '50%'},  // right
-                    {x: '50%', y: '50%'}   // center again
-                ];
-                
-                let html = `<div style="position: relative; width: 100vw; height: 100vh;">`;
-                positions.forEach((pos, i) => {
-                    html += `
-                        <div id="cal-point-${i}" 
-                             class="calibration-point"
-                             style="left: ${pos.x}; top: ${pos.y}; display: none;">
-                        </div>`;
-                });
-                html += '</div>';
-                return html;
-            },
-            trial_duration: 12000, // 3000ms per position
             on_load: function() {
-                let currentPoint = 0;
-                const points = document.querySelectorAll('.calibration-point');
-                
-                function showNextPoint() {
-                    points.forEach(p => p.style.display = 'none');
-                    if (currentPoint < points.length) {
-                        points[currentPoint].style.display = 'block';
-                        points[currentPoint].classList.add('animate-pulse');
-                        currentPoint++;
-                        setTimeout(showNextPoint, 3000);
-                    }
-                }
-                
-                showNextPoint();
+                webgazer.begin();
+                webgazer.showVideoPreview(false);
+                webgazer.showPredictionPoints(false);
             }
         };
 
-        // Mirror trial with webcam
+        // Calibration sequence
+        const calibrationTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div style="position: relative; width: 100vw; height: 100vh;">
+                    <div id="calibration-point" class="calibration-point"></div>
+                </div>
+            `,
+            choices: "NO_KEYS",
+            trial_duration: 15000,
+            on_load: function() {
+                const point = document.getElementById('calibration-point');
+                const positions = [
+                    { left: '50%', top: '50%' },  // center
+                    { left: '20%', top: '50%' },  // left
+                    { left: '80%', top: '50%' },  // right
+                    { left: '50%', top: '20%' },  // top
+                    { left: '50%', top: '80%' }   // bottom
+                ];
+                let currentPosition = 0;
+
+                function movePoint() {
+                    if (currentPosition < positions.length) {
+                        point.style.left = positions[currentPosition].left;
+                        point.style.top = positions[currentPosition].top;
+                        currentPosition++;
+                        setTimeout(movePoint, 3000); // Move every 3 seconds
+                    }
+                }
+
+                movePoint();
+            }
+        };
+
+        // Mirror trial with webcam and recording
         const mirrorTrial = {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `
@@ -112,58 +138,77 @@
                     <video id="webcam" autoplay playsinline></video>
                 </div>
             `,
+            choices: "NO_KEYS",
             trial_duration: 15000,
             on_load: function() {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then(function(stream) {
-                        const video = document.getElementById('webcam');
-                        video.srcObject = stream;
-                        
-                        const gazeData = [];
-                        const startTime = performance.now();
-                        
-                        const trackingInterval = setInterval(() => {
-                            const timeElapsed = performance.now() - startTime;
-                            gazeData.push({
-                                timestamp: timeElapsed,
-                                x: Math.random(),
-                                y: Math.random()
-                            });
-                        }, 100);
-                        
-                        setTimeout(() => {
-                            clearInterval(trackingInterval);
-                            stream.getTracks().forEach(track => track.stop());
-                            jsPsych.data.write({
-                                trial_type: 'mirror',
-                                gaze_data: gazeData
-                            });
-                        }, 15000);
-                    })
-                    .catch(function(err) {
-                        console.error("Error accessing webcam:", err);
-                        alert('Error accessing webcam. Please make sure you have granted camera permissions.');
-                    });
-            }
-        };
+                const gazeDot = document.getElementById('gaze-dot');
 
-        // Exit survey
-        const exitSurvey = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <h2>Thank you for participating!</h2>
-                <p>We are studying how babies respond to seeing themselves.</p>
-            `,
-            choices: ['Complete Study'],
+                // Start eye tracking
+                webgazer.setGazeListener(function(data, elapsedTime) {
+                    if (data == null) return;
+                    
+                    gazeDot.style.left = data.x + 'px';
+                    gazeDot.style.top = data.y + 'px';
+                    
+                    gazeData.push({
+                        timestamp: Date.now(),
+                        x: data.x,
+                        y: data.y
+                    });
+                }).begin();
+
+                // Start video recording
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 },
+                    audio: false
+                })
+                .then(function(stream) {
+                    const video = document.getElementById('webcam');
+                    video.srcObject = stream;
+
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'video/webm;codecs=vp9'
+                    });
+
+                    mediaRecorder.ondataavailable = function(event) {
+                        if (event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = function() {
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `mirror_recording_${Date.now()}.webm`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    };
+
+                    mediaRecorder.start();
+
+                    setTimeout(() => {
+                        if (mediaRecorder.state !== 'inactive') {
+                            mediaRecorder.stop();
+                        }
+                        stream.getTracks().forEach(track => track.stop());
+                    }, 15000);
+                })
+                .catch(function(err) {
+                    console.error("Error accessing webcam:", err);
+                    alert('Error accessing webcam. Please make sure you have granted camera permissions.');
+                });
+            }
         };
 
         // Create timeline
         const timeline = [
-            welcome,
-            calibrationInstructions,
+            initWebGazer,
             calibrationTrial,
-            mirrorTrial,
-            exitSurvey
+            mirrorTrial
         ];
 
         // Start the experiment
