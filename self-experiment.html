@@ -16,11 +16,11 @@
     <!-- Load WebGazer -->
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     
-    <!-- Add custom styles -->
+    <!-- custom styles -->
     <style>
         #webcam-container {
-            width: 640px;
-            height: 480px;
+            width: 960;
+            height: 720;
             margin: 0 auto;
             border: 2px solid #ccc;
             position: relative;
@@ -72,7 +72,7 @@
             }
         });
 
-        // Welcome screen
+        // Welcome
         const welcome = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
@@ -97,6 +97,16 @@
             }
         };
 
+        // Calibration setup
+        const calibrationInstructions = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Calibration</h2>
+                <p>Now we'll show your child some interesting patterns to help us track where they're looking.</p>
+            `,
+            choices: ['Start Calibration'],
+        };
+
         // Calibration sequence
         const calibrationTrial = {
             type: jsPsychHtmlKeyboardResponse,
@@ -106,7 +116,7 @@
                 </div>
             `,
             choices: "NO_KEYS",
-            trial_duration: 10000,
+            trial_duration: 10000, // 2 seconds × 5 points
             on_load: function() {
                 const point = document.getElementById('calibration-point');
                 const chime = document.getElementById('chime');
@@ -127,7 +137,7 @@
                         chime.currentTime = 0;  // Reset the audio to start
                         chime.play().catch(e => console.log("Audio play failed:", e));
                         currentPosition++;
-                        setTimeout(movePoint, 2000); // Move every 2 seconds
+                        setTimeout(movePoint, 2000); // Move every 2
                     }
                 }
 
@@ -135,7 +145,7 @@
             }
         };
 
-        // Mirror trial with webcam and recording
+        // Mirror trial
         const mirrorTrial = {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `
@@ -160,7 +170,7 @@
 
                 // Start video recording
                 navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 },
+                    video: { width: 960, height: 720 },
                     audio: false
                 })
                 .then(function(stream) {
@@ -205,7 +215,7 @@
             }
         };
 
-        // Exit survey
+        // Exit
         const exitSurvey = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
@@ -215,10 +225,11 @@
             choices: ['Complete Study'],
         };
 
-        // Create timeline
+        // timeline
         const timeline = [
             welcome,
             initWebGazer,
+            calibrationInstructions,
             calibrationTrial,
             mirrorTrial,
             exitSurvey
