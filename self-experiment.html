@@ -2,25 +2,25 @@
 <html>
 <head>
     <title>Baby Mirror Self-Recognition</title>
-    <!-- Load jsPsych -->
-    <script src="jspsych/jspsych.js"></script>
-    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css">
+    <!-- Load jsPsych with correct GitHub Pages paths -->
+    <script src="/baby_view_baby/jspsych/jspsych.js"></script>
+    <link href="/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
     
     <!-- Load required plugins -->
-    <script src="jspsych/plugin-html-keyboard-response.js"></script>
-    <script src="jspsych/plugin-video-keyboard-response.js"></script>
-    <script src="jspsych/plugin-preload.js"></script>
-    <script src="jspsych/plugin-html-button-response.js"></script>
-    <script src="jspsych/extension-webgazer.js"></script>
+    <script src="/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="/baby_view_baby/jspsych/plugin-video-keyboard-response.js"></script>
+    <script src="/baby_view_baby/jspsych/plugin-preload.js"></script>
+    <script src="/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
+    <script src="/baby_view_baby/jspsych/extension-webgazer.js"></script>
     
     <!-- Load WebGazer -->
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     
-    <!-- custom styles -->
+    <!-- Add custom styles -->
     <style>
         #webcam-container {
-            width: 960;
-            height: 720;
+            width: 960px;
+            height: 720px;
             margin: 0 auto;
             border: 2px solid #ccc;
             position: relative;
@@ -48,9 +48,12 @@
 </head>
 <body>
     <div id="jspsych-target"></div>
-    <audio id="chime" src="mp3/chime.mp3"></audio>
+    <audio id="chime" src="/baby_view_baby/mp3/chime.mp3"></audio>
 
     <script>
+        // Get participant ID from URL parameters (sent by Lookit)
+        const urlParams = new URLSearchParams(window.location.search);
+        const participantId = urlParams.get('participantId') || 'unknown';
         let gazeData = [];
         let mediaRecorder;
         const recordedChunks = [];
@@ -58,17 +61,19 @@
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
-                const gazeBlob = new Blob([JSON.stringify(gazeData)], { type: 'application/json' });
-                const gazeUrl = URL.createObjectURL(gazeBlob);
-                const a = document.createElement('a');
-                a.href = gazeUrl;
-                a.download = `gaze_data_${Date.now()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(gazeUrl);
-                
-                webgazer.end();
+                // Prepare data to send back to Lookit
+                const experimentData = {
+                    participantId: participantId,
+                    timestamp: new Date().toISOString(),
+                    gazeData: gazeData,
+                    videoData: recordedChunks
+                };
+
+                // Send data back to Lookit
+                window.opener.postMessage({
+                    type: 'taskComplete',
+                    data: experimentData
+                }, '*');
             }
         });
 
