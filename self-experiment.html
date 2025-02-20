@@ -160,7 +160,7 @@
                 </div>
             `,
             choices: "NO_KEYS",
-            trial_duration: 600000,
+            trial_duration: 60000,
             on_load: function() {
                 // Get the audio element
                 const song = document.getElementById('song');
@@ -220,7 +220,7 @@
 
                         song.pause();  // Stop the song when trial ends
                         song.currentTime = 0; // Reset song for potential reuse
-                    }, 600000);
+                    }, 60000);
                 })
                 .catch(function(err) {
                     console.error("Error accessing webcam:", err);
