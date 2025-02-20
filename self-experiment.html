@@ -49,6 +49,7 @@
 <body>
     <div id="jspsych-target"></div>
     <audio id="chime" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+    <audio id="song" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
 
     <script>
         // Get participant ID from URL parameters (sent by Lookit)
@@ -161,6 +162,11 @@
             choices: "NO_KEYS",
             trial_duration: 15000,
             on_load: function() {
+                // Get the audio element
+                const song = document.getElementById('song');
+                song.currentTime = 0;  // Reset to start
+                song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
+
                 // Start eye tracking without showing the prediction
                 webgazer.setGazeListener(function(data, elapsedTime) {
                     if (data == null) return;
@@ -211,7 +217,10 @@
                             mediaRecorder.stop();
                         }
                         stream.getTracks().forEach(track => track.stop());
-                    }, 15000);
+
+                        song.pause();  // Stop the song when trial ends
+                        song.currentTime = 0; // Reset song for potential reuse
+                    }, 600000);
                 })
                 .catch(function(err) {
                     console.error("Error accessing webcam:", err);
