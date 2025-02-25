@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Baby Mirror Self-Recognition</title>
-    <!-- Load jsPsych with correct GitHub Pages paths -->
+    <!-- Load jsPsych with full URLs for GitHub Pages -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
     
@@ -27,6 +27,8 @@
             object-fit: cover;
         }
         #webcam {
+            width: 100%;
+            height: 100%;
             transform: scaleX(-1);
         }
         .calibration-point {
@@ -61,19 +63,30 @@
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
-                // Prepare data to send back to Lookit
+                // Prepare metadata to send back to Lookit
                 const experimentData = {
                     participantId: participantId,
                     timestamp: new Date().toISOString(),
-                    gazeData: gazeData,
-                    videoData: recordedChunks
+                    experimentComplete: true,
+                    // Send just a sample of the gaze data (first 20 points)
+                    gazeSample: gazeData.slice(0, 20),
+                    // Add metadata about recording
+                    recordingInfo: {
+                        durationMs: 120000,
+                        dataPoints: gazeData.length,
+                        complete: true
+                    }
                 };
 
-                // Send data back to Lookit
+                // Send a message back to Lookit
                 window.opener.postMessage({
                     type: 'taskComplete',
                     data: experimentData
                 }, '*');
+                
+                // Log completion to console but don't download anything
+                console.log("Experiment completed for participant: " + participantId);
+                console.log("Data collected: " + gazeData.length + " gaze data points");
             }
         });
 
@@ -142,7 +155,7 @@
                         chime.currentTime = 0;  // Reset the audio to start
                         chime.play().catch(e => console.log("Audio play failed:", e));
                         currentPosition++;
-                        setTimeout(movePoint, 2000); // Move every 2
+                        setTimeout(movePoint, 2000); // Move every 2 seconds
                     }
                 }
 
@@ -158,10 +171,10 @@
                     <video id="webcam" autoplay playsinline></video>
                 </div>
             `,
-            choices: "NO_KEYS",
-            trial_duration: 60000,
+            choices: [' '], // Allow spacebar to end trial
+            trial_duration: 120000, // 2 minutes
             on_load: function() {
-                // Get the audio element
+                // Get the audio element and play soundtrack
                 const song = document.getElementById('song');
                 song.currentTime = 0;  // Reset to start
                 song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
@@ -178,7 +191,7 @@
                     });
                 }).begin();
 
-                // Start video recording
+                // Start video recording (but don't save it)
                 navigator.mediaDevices.getUserMedia({ 
                     video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
                     audio: false
@@ -187,30 +200,11 @@
                     const video = document.getElementById('webcam');
                     video.srcObject = stream;
 
-                    mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: 'video/webm;codecs=vp9'
-                    });
-
-                    mediaRecorder.ondataavailable = function(event) {
-                        if (event.data.size > 0) {
-                            recordedChunks.push(event.data);
-                        }
-                    };
-
-                    mediaRecorder.onstop = function() {
-                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `mirror_recording_${Date.now()}.webm`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    };
-
+                    // We still set up the recorder for consistency, but don't save data
+                    mediaRecorder = new MediaRecorder(stream);
                     mediaRecorder.start();
 
+                    // Stop recording after 2 minutes or if spacebar pressed
                     setTimeout(() => {
                         if (mediaRecorder.state !== 'inactive') {
                             mediaRecorder.stop();
@@ -219,12 +213,18 @@
 
                         song.pause();  // Stop the song when trial ends
                         song.currentTime = 0; // Reset song for potential reuse
-                    }, 60000);
+                    }, 120000); // 2 minutes
                 })
                 .catch(function(err) {
                     console.error("Error accessing webcam:", err);
                     alert('Error accessing webcam. Please make sure you have granted camera permissions.');
                 });
+            },
+            on_finish: function() {
+                // Make sure song stops if trial ended early (from spacebar)
+                const song = document.getElementById('song');
+                song.pause();
+                song.currentTime = 0;
             }
         };
 
