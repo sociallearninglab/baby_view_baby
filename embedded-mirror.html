@@ -26,7 +26,6 @@
             position: absolute;
             top: 0;
             left: 0;
-            min-height: 800px; /* Add minimum height */
         }
         
         #webcam-container {
@@ -35,7 +34,6 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            min-height: 800px;
             overflow: hidden;
             background-color: #000;
             display: flex;
@@ -54,7 +52,7 @@
         
         .calibration-point {
             position: absolute;
-            width: 30px;  /* Made larger */
+            width: 30px;
             height: 30px;
             background: red;
             border-radius: 50%;
@@ -77,39 +75,67 @@
             color: white;
             padding: 5px 10px;
             border-radius: 5px;
-            font-size: 18px;  /* Larger font */
+            font-size: 18px;
             z-index: 1000;
         }
         
+        /* Style the button */
         .jspsych-btn {
-            font-size: 24px;  /* Larger button */
+            display: inline-block;
+            font-size: 22px;
             padding: 15px 30px;
             background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 20px;
+            margin: 20px auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         
-        /* Full screen styling */
-        .jspsych-display-element {
-            height: 100vh !important;
+        /* Button hover effect */
+        .jspsych-btn:hover {
+            background-color: #45a049;
         }
         
-        /* Large centered text */
-        .centered-text {
+        /* Button container */
+        .button-container {
             text-align: center;
-            font-size: 24px;
-            margin: 20px 0;
+            width: 100%;
+            margin: 30px 0;
+            position: relative;
+            z-index: 100;
         }
         
-        /* Make the calibration container taller */
-        .calibration-container {
-            height: 70vh !important;
-            min-height: 600px;
-            position: relative;
-            margin-bottom: 20px;
+        /* Center the content */
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        /* Clear text */
+        h1, h2, p {
+            text-align: center;
+            margin: 10px 0;
+            color: #333;
+        }
+        
+        h1 {
+            font-size: 32px;
+        }
+        
+        h2 {
+            font-size: 28px;
+        }
+        
+        p {
+            font-size: 22px;
         }
     </style>
 </head>
@@ -131,24 +157,29 @@
         const startButton = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <h1 style="font-size: 36px;">Mirror Experiment</h1>
-                <p class="centered-text">Click the button below to start the experiment.</p>
+                <div class="content-container">
+                    <h1>Mirror Experiment</h1>
+                    <p>Click the green button below to start</p>
+                </div>
             `,
-            choices: ['Start'],
+            choices: ['START EXPERIMENT'],
             button_html: '<button class="jspsych-btn">%choice%</button>'
         };
 
         // Calibration sequence
         const calibrationTrial = {
-            type: jsPsychHtmlButtonResponse,
+            type: jsPsychHtmlKeyboardResponse,
             stimulus: `
-                <div class="calibration-container">
+                <div style="position: relative; width: 100%; height: 400px;">
                     <div id="calibration-point" class="calibration-point"></div>
                 </div>
-                <p class="centered-text">Watch the red dot. When finished, press the button below.</p>
+                <div class="button-container">
+                    <p>Watch the red dot</p>
+                    <p>The mirror will start automatically after calibration</p>
+                </div>
             `,
-            choices: ['Start Mirror'],
-            button_html: '<button class="jspsych-btn">%choice%</button>',
+            choices: "NO_KEYS",
+            trial_duration: 10000, // 10 seconds for calibration
             on_load: function() {
                 const point = document.getElementById('calibration-point');
                 const chime = document.getElementById('chime');
@@ -198,27 +229,11 @@
                 song.currentTime = 0;
                 song.play().catch(e => console.log("Audio play failed:", e));
                 
-                // Try going fullscreen if possible
-                try {
-                    const container = document.getElementById('jspsych-target');
-                    if (container.requestFullscreen) {
-                        container.requestFullscreen();
-                    } else if (container.mozRequestFullScreen) {
-                        container.mozRequestFullScreen();
-                    } else if (container.webkitRequestFullscreen) {
-                        container.webkitRequestFullscreen();
-                    } else if (container.msRequestFullscreen) {
-                        container.msRequestFullscreen();
-                    }
-                } catch (e) {
-                    console.log("Fullscreen request failed:", e);
-                }
-                
                 // Start webcam
                 navigator.mediaDevices.getUserMedia({ 
                     video: { 
-                        width: { ideal: 3840 }, // 4K
-                        height: { ideal: 2160 }
+                        width: { ideal: 1920 }, // Full HD
+                        height: { ideal: 1080 }
                     },
                     audio: false
                 })
@@ -246,17 +261,6 @@
                         stream.getTracks().forEach(track => track.stop());
                         song.pause();
                         timerEl.style.display = 'none';
-                        
-                        // Exit fullscreen
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen();
-                        } else if (document.mozCancelFullScreen) {
-                            document.mozCancelFullScreen();
-                        } else if (document.webkitExitFullscreen) {
-                            document.webkitExitFullscreen();
-                        } else if (document.msExitFullscreen) {
-                            document.msExitFullscreen();
-                        }
                     }, 120000); // 2 minutes
                 })
                 .catch(function(err) {
@@ -277,10 +281,12 @@
         const complete = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <h2 style="font-size: 36px;">Mirror experiment complete!</h2>
-                <p class="centered-text">Please press Continue in the main study window to proceed.</p>
+                <div class="content-container">
+                    <h2>Mirror experiment complete!</h2>
+                    <p>Please press Continue in the main study window to proceed.</p>
+                </div>
             `,
-            choices: ['Ok'],
+            choices: ['OK'],
             button_html: '<button class="jspsych-btn">%choice%</button>'
         };
 
