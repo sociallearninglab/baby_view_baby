@@ -3,11 +3,15 @@
 <head>
     <title>Baby Mirror Self-Recognition</title>
 
+    <!-- Add permissions policy -->
+    <meta http-equiv="Permissions-Policy" content="camera=self">
+
+    
 
     <!-- Load jsPsych with full URLs for GitHub Pages -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
-    
+
     <!-- Load required plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
@@ -20,12 +24,12 @@
             height: 100%;
             overflow: hidden;
         }
-        
+
         #jspsych-target {
             position: relative !important;
             overflow: visible !important;
         }
-        
+
         .my-btn {
             padding: 12px 24px;
             font-size: 20px;
@@ -37,21 +41,21 @@
             margin-top: 15px;
             display: inline-block;
         }
-        
+
         #webcam-container {
             width: 100%;
             height: 600px;
             background-color: black;
             margin: 0 auto;
         }
-        
+
         #webcam {
             width: 100%;
             height: 100%;
             transform: scaleX(-1);
             object-fit: cover;
         }
-        
+
         .calibration-point {
             position: absolute;
             width: 25px;
@@ -62,13 +66,13 @@
             animation: pulse 1s infinite;
             z-index: 100;
         }
-        
+
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.5); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
-        
+
         #timer {
             position: fixed;
             top: 10px;
@@ -81,7 +85,7 @@
             display: none;
             z-index: 100;
         }
-        
+
         h1, h2, p {
             text-align: center;
         }
@@ -103,18 +107,6 @@
                 }
             });
 
-            // Check if we should reuse an existing camera stream
-            const urlParams = new URLSearchParams(window.location.search);
-            const reuseCamera = urlParams.get('reuseCamera') === 'true';
-
-            if (reuseCamera && window.parentExperimentStream) {
-                const video = document.getElementById('webcam');
-                video.srcObject = window.parentExperimentStream;
-            } 
-
-        } else {
-
-            
             // Start button
             const startButton = {
                 type: jsPsychHtmlButtonResponse,
@@ -125,7 +117,7 @@
                 choices: ['START'],
                 // Don't use button_html, use the default
             };
-            
+
             // Calibration
             const calibrationTrial = {
                 type: jsPsychHtmlButtonResponse,
@@ -139,7 +131,7 @@
                 on_load: function() {
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
-                    
+
                     // Move the dot and play sound
                     const positions = [
                         { left: '50%', top: '50%' },
@@ -148,28 +140,28 @@
                         { left: '50%', top: '20%' },
                         { left: '50%', top: '80%' }
                     ];
-                    
+
                     let currentPos = 0;
-                    
+
                     function moveDot() {
                         if (currentPos < positions.length) {
                             point.style.left = positions[currentPos].left;
                             point.style.top = positions[currentPos].top;
-                            
+
                             // Play sound
                             chime.currentTime = 0;
                             chime.play().catch(e => console.log("Audio error:", e));
-                            
+
                             currentPos++;
                             setTimeout(moveDot, 2000);
                         }
                     }
-                    
+
                     // Start the sequence
                     moveDot();
                 }
             };
-            
+
             // Mirror trial
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
@@ -184,12 +176,12 @@
                     // Show timer
                     const timerEl = document.getElementById('timer');
                     timerEl.style.display = 'block';
-                    
+
                     // Play song
                     const song = document.getElementById('song');
                     song.currentTime = 0;
                     song.play().catch(e => console.log("Audio error:", e));
-                    
+
                     navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         width: { ideal: 1920 },
@@ -200,22 +192,22 @@
                     .then(function(stream) {
                         const video = document.getElementById('webcam');
                         video.srcObject = stream;
-                        
+
                         // Set up timer
                         let timeLeft = 120; // 2 minutes
                         const updateTimer = () => {
                             const minutes = Math.floor(timeLeft / 60);
                             const seconds = timeLeft % 60;
                             timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                            
+
                             if (timeLeft > 0) {
                                 timeLeft--;
                                 setTimeout(updateTimer, 1000);
                             }
                         };
-                        
+
                         updateTimer();
-                        
+
                         // Stop everything after 2 minutes
                         setTimeout(() => {
                             stream.getTracks().forEach(track => track.stop());
@@ -225,26 +217,15 @@
                     })
 
                     .catch(function(err) {
-                        console.error("Webcam access error:", err);
-                        
-                        // visible error message logging
-                        const errorDiv = document.createElement('div');
-                        errorDiv.style.color = 'red';
-                        errorDiv.style.textAlign = 'center';
-                        errorDiv.style.padding = '20px';
-                        
-                        if (err.name === 'NotAllowedError') {
-                            errorDiv.textContent = 'Camera access not allowed';
-                        } else {
-                            errorDiv.textContent = 'Error accessing webcam: ' + err.message;
-                        }
-                        
-                        // Insert the error message into the webcam container
-                        const webcamContainer = document.getElementById('webcam-container');
-                        webcamContainer.innerHTML = '';
-                        webcamContainer.appendChild(errorDiv);
-                    });
-
+                    console.error("Webcam error:", err);
+                    // More informative error handling
+                    if (err.name === 'NotAllowedError') {
+                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                    } else {
+                        alert('Error accessing webcam: ' + err.message);
+                    }
+                });
+                    
                 },
                 on_finish: function() {
                     // Make sure everything is stopped
@@ -253,7 +234,7 @@
                     document.getElementById('timer').style.display = 'none';
                 }
             };
-            
+
             // Complete message
             const complete = {
                 type: jsPsychHtmlButtonResponse,
@@ -263,7 +244,7 @@
                 `,
                 choices: ['OK']
             };
-            
+
             // Timeline
             const timeline = [
                 startButton,
@@ -271,10 +252,9 @@
                 mirrorTrial,
                 complete
             ];
-            
+
             // Start the experiment
             jsPsych.run(timeline);
         });
     </script>
 </body>
-</html>
