@@ -8,16 +8,19 @@
     
     <!-- Load required plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-video-keyboard-response.js"></script>
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-preload.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/extension-webgazer.js"></script>
     
     <!-- Load WebGazer -->
     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     
     <!-- Add custom styles -->
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
         #webcam-container {
             position: fixed;
             top: 0;
@@ -26,11 +29,13 @@
             height: 100vh;
             object-fit: cover;
         }
+        
         #webcam {
             width: 100%;
             height: 100%;
             transform: scaleX(-1);
         }
+        
         .calibration-point {
             position: absolute;
             width: 25px;
@@ -40,22 +45,28 @@
             transform: translate(-50%, -50%);
             animation: pulse 1s infinite;
         }
+        
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.5); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
-        .notification {
+        
+        #timer {
             position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
             color: white;
-            padding: 15px 20px;
+            padding: 5px 10px;
             border-radius: 5px;
+            font-size: 14px;
             z-index: 1000;
-            font-size: 16px;
+        }
+        
+        #jspsych-target {
+            width: 100vw;
+            height: 100vh;
         }
     </style>
 </head>
@@ -63,111 +74,18 @@
     <div id="jspsych-target"></div>
     <audio id="chime" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
     <audio id="song" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    <div id="timer" style="display: none;">00:00</div>
 
     <script>
-        // Get participant ID from URL parameters (sent by Lookit)
-        const urlParams = new URLSearchParams(window.location.search);
-        const participantId = urlParams.get('participantId') || 'unknown';
-        console.log("Received participantId:", participantId);
-        
         let gazeData = [];
-        let completionStatus = "not_started";
         
-        // Function to send data back to Lookit
-        function sendToLookit(data) {
-            console.log("Attempting to send data to Lookit");
-            try {
-                if (window.opener) {
-                    window.opener.postMessage({
-                        type: 'taskComplete',
-                        data: data
-                    }, '*');
-                    console.log("Data sent to Lookit via postMessage");
-                    
-                    // Display message to user
-                    const notification = document.createElement('div');
-                    notification.className = 'notification';
-                    notification.textContent = 'Data sent to Lookit. You can now close this tab and return to the study.';
-                    document.body.appendChild(notification);
-                    
-                    // Remove notification after 10 seconds
-                    setTimeout(() => {
-                        if (notification.parentNode) {
-                            notification.parentNode.removeChild(notification);
-                        }
-                    }, 10000);
-                } else {
-                    console.error("Window opener not available");
-                    alert("Cannot communicate with Lookit. Please close this tab and return to the study.");
-                }
-            } catch (e) {
-                console.error("Error sending data to Lookit:", e);
-                alert("Error sending data to Lookit. Please close this tab and return to the study.");
-            }
-        }
-
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
-                completionStatus = "completed";
-                
-                // Prepare data to send back to Lookit
-                const experimentData = {
-                    participantId: participantId,
-                    timestamp: new Date().toISOString(),
-                    experimentComplete: true,
-                    gazeSample: gazeData.slice(0, 20),
-                    recordingInfo: {
-                        durationMs: 120000,
-                        dataPoints: gazeData.length,
-                        complete: true
-                    }
-                };
-                
-                // Send data to Lookit
-                sendToLookit(experimentData);
-                
-                console.log("Experiment completed for participant: " + participantId);
-                console.log("Data collected: " + gazeData.length + " gaze data points");
+                console.log("Mirror experiment completed");
+                // We don't need to save any data since this is embedded directly in Lookit
             }
         });
-
-        // Welcome
-        const welcome = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <h1>Welcome!</h1>
-                <p>Thank you for participating in our study about how babies view faces!</p>
-                <p>Participant ID: ${participantId}</p>
-            `,
-            choices: ['Begin'],
-        };
-
-        // Initialize WebGazer
-        const initWebGazer = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <h2>Eye Tracking Setup</h2>
-                <p>We'll set up eye tracking with automatic calibration. Click begin when ready.</p>
-            `,
-            choices: ['Begin'],
-            on_load: function() {
-                completionStatus = "in_progress";
-                webgazer.begin();
-                webgazer.showVideoPreview(false);
-                webgazer.showPredictionPoints(false);
-            }
-        };
-
-        // Calibration setup
-        const calibrationInstructions = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <h2>Calibration</h2>
-                <p>Now we'll show your child some interesting patterns to help us track where they're looking.</p>
-            `,
-            choices: ['Start Calibration'],
-        };
 
         // Calibration sequence
         const calibrationTrial = {
@@ -204,6 +122,23 @@
                 }
 
                 movePoint();
+                
+                // Initialize WebGazer but don't show any UI elements
+                webgazer.begin();
+                webgazer.showVideoPreview(false);
+                webgazer.showPredictionPoints(false);
+                
+                // Set up gaze listener
+                webgazer.setGazeListener(function(data, elapsedTime) {
+                    if (data == null) return;
+                    
+                    // Store gaze data without showing the dot
+                    gazeData.push({
+                        timestamp: Date.now(),
+                        x: data.x,
+                        y: data.y
+                    });
+                }).begin();
             }
         };
 
@@ -218,24 +153,16 @@
             choices: [' '], // Allow spacebar to end trial
             trial_duration: 120000, // 2 minutes
             on_load: function() {
+                // Show timer
+                const timerEl = document.getElementById('timer');
+                timerEl.style.display = 'block';
+                
                 // Get the audio element and play soundtrack
                 const song = document.getElementById('song');
                 song.currentTime = 0;  // Reset to start
                 song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
-
-                // Start eye tracking without showing the prediction
-                webgazer.setGazeListener(function(data, elapsedTime) {
-                    if (data == null) return;
-                    
-                    // Store gaze data without showing the dot
-                    gazeData.push({
-                        timestamp: Date.now(),
-                        x: data.x,
-                        y: data.y
-                    });
-                }).begin();
-
-                // Start video recording (but don't save it)
+                
+                // Start webcam
                 navigator.mediaDevices.getUserMedia({ 
                     video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
                     audio: false
@@ -243,12 +170,27 @@
                 .then(function(stream) {
                     const video = document.getElementById('webcam');
                     video.srcObject = stream;
-
-                    // Stop recording after 2 minutes or if spacebar pressed
+                    
+                    // Set up timer
+                    let timeLeft = 120; // 2 minutes
+                    const updateTimer = () => {
+                        const minutes = Math.floor(timeLeft / 60);
+                        const seconds = timeLeft % 60;
+                        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        
+                        if (timeLeft > 0) {
+                            timeLeft--;
+                            setTimeout(updateTimer, 1000);
+                        }
+                    };
+                    
+                    updateTimer();
+                    
+                    // Stop everything after 2 minutes
                     setTimeout(() => {
                         stream.getTracks().forEach(track => track.stop());
-                        song.pause();  // Stop the song when trial ends
-                        song.currentTime = 0; // Reset song for potential reuse
+                        song.pause();
+                        timerEl.style.display = 'none';
                     }, 120000); // 2 minutes
                 })
                 .catch(function(err) {
@@ -257,57 +199,32 @@
                 });
             },
             on_finish: function() {
-                // Make sure song stops if trial ended early (from spacebar)
+                // Stop the song and hide timer
                 const song = document.getElementById('song');
                 song.pause();
                 song.currentTime = 0;
+                document.getElementById('timer').style.display = 'none';
+                
+                // Clean up WebGazer
+                webgazer.end();
             }
         };
 
-        // Exit
-        const exitSurvey = {
+        // Complete message
+        const complete = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <h2>Thank you for participating!</h2>
-                <p>We are studying how babies respond to seeing themselves.</p>
-                <p>The experiment is now complete. You will be redirected back to Lookit.</p>
-                <p>If you are not automatically redirected, please close this tab and continue the study on Lookit.</p>
+                <h2>Mirror experiment complete!</h2>
+                <p>Please press Continue in the main study window to proceed.</p>
             `,
-            choices: ['Complete Study'],
+            choices: ['Ok'],
         };
-
-        // Handle window events
-        window.addEventListener('beforeunload', function(e) {
-            if (completionStatus === "in_progress") {
-                // Send partial data if user closes window before completion
-                const experimentData = {
-                    participantId: participantId,
-                    timestamp: new Date().toISOString(),
-                    experimentComplete: false,
-                    gazeSample: gazeData.slice(0, 20),
-                    recordingInfo: {
-                        complete: false,
-                        reason: "window_closed",
-                        dataPoints: gazeData.length
-                    }
-                };
-                
-                sendToLookit(experimentData);
-                
-                // Modern browsers require returnValue to be set
-                e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
-                return e.returnValue;
-            }
-        });
 
         // timeline
         const timeline = [
-            welcome,
-            initWebGazer,
-            calibrationInstructions,
             calibrationTrial,
             mirrorTrial,
-            exitSurvey
+            complete
         ];
 
         // Start the experiment
