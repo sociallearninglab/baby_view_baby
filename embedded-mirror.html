@@ -209,9 +209,14 @@
                         }, 120000);
                     })
                     .catch(function(err) {
-                        console.error("Webcam error:", err);
-                        alert("Error accessing webcam. Please make sure you've granted camera permissions.");
-                    });
+                    console.error("Webcam error:", err);
+                    // More informative error handling
+                    if (err.name === 'NotAllowedError') {
+                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                    } else {
+                        alert('Error accessing webcam: ' + err.message);
+                    }
+                });
                 },
                 on_finish: function() {
                     // Make sure everything is stopped
