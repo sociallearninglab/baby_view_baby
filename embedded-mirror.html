@@ -6,7 +6,7 @@
     <!-- Add permissions policy -->
     <meta http-equiv="Permissions-Policy" content="camera=self">
 
-    
+
     <!-- Load jsPsych with full URLs for GitHub Pages -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
@@ -214,15 +214,28 @@
                             timerEl.style.display = 'none';
                         }, 120000);
                     })
+
                     .catch(function(err) {
-                    console.error("Webcam error:", err);
-                    // More informative error handling
-                    if (err.name === 'NotAllowedError') {
-                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                    } else {
-                        alert('Error accessing webcam: ' + err.message);
-                    }
-                });
+                        console.error("Webcam access error:", err);
+                        
+                        // Create a visible error message in the DOM instead of using alert
+                        const errorDiv = document.createElement('div');
+                        errorDiv.style.color = 'red';
+                        errorDiv.style.textAlign = 'center';
+                        errorDiv.style.padding = '20px';
+                        
+                        if (err.name === 'NotAllowedError') {
+                            errorDiv.textContent = 'Camera access was blocked. Please check your browser settings and allow camera access for this site.';
+                        } else {
+                            errorDiv.textContent = 'Error accessing webcam: ' + err.message;
+                        }
+                        
+                        // Insert the error message into the webcam container
+                        const webcamContainer = document.getElementById('webcam-container');
+                        webcamContainer.innerHTML = '';
+                        webcamContainer.appendChild(errorDiv);
+                    });
+                    
                 },
                 on_finish: function() {
                     // Make sure everything is stopped
