@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Baby Mirror Self-Recognition</title>
+    <!-- Load jsPsych with full URLs for GitHub Pages -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
+    <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
+    
+    <!-- Load required plugins -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
+    
+    <!-- Load WebGazer -->
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    
+    <!-- Add custom styles -->
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        #webcam-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+        
+        .calibration-point {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.5); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        #timer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        #jspsych-target {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="jspsych-target"></div>
+    <audio id="chime" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+    <audio id="song" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    <div id="timer" style="display: none;">00:00</div>
+
+    <script>
+        let gazeData = [];
+        
+        // Initialize jsPsych
+        const jsPsych = initJsPsych({
+            on_finish: function() {
+                console.log("Mirror experiment completed");
+                // We don't need to save any data since this is embedded directly in Lookit
+            }
+        });
+
+        // Calibration sequence
+        const calibrationTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div style="position: relative; width: 100vw; height: 100vh;">
+                    <div id="calibration-point" class="calibration-point"></div>
+                </div>
+            `,
+            choices: "NO_KEYS",
+            trial_duration: 10000, // 2 seconds × 5 points
+            on_load: function() {
+                const point = document.getElementById('calibration-point');
+                const chime = document.getElementById('chime');
+                const positions = [
+                    { left: '50%', top: '50%' },  // center
+                    { left: '20%', top: '50%' },  // left
+                    { left: '80%', top: '50%' },  // right
+                    { left: '50%', top: '20%' },  // top
+                    { left: '50%', top: '80%' }   // bottom
+                ];
+                let currentPosition = 0;
+
+                function movePoint() {
+                    if (currentPosition < positions.length) {
+                        point.style.left = positions[currentPosition].left;
+                        point.style.top = positions[currentPosition].top;
+                        // Play chime sound
+                        chime.currentTime = 0;  // Reset the audio to start
+                        chime.play().catch(e => console.log("Audio play failed:", e));
+                        currentPosition++;
+                        setTimeout(movePoint, 2000); // Move every 2 seconds
+                    }
+                }
+
+                movePoint();
+                
+                // Initialize WebGazer but don't show any UI elements
+                webgazer.begin();
+                webgazer.showVideoPreview(false);
+                webgazer.showPredictionPoints(false);
+                
+                // Set up gaze listener
+                webgazer.setGazeListener(function(data, elapsedTime) {
+                    if (data == null) return;
+                    
+                    // Store gaze data without showing the dot
+                    gazeData.push({
+                        timestamp: Date.now(),
+                        x: data.x,
+                        y: data.y
+                    });
+                }).begin();
+            }
+        };
+
+        // Mirror trial
+        const mirrorTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div id="webcam-container">
+                    <video id="webcam" autoplay playsinline></video>
+                </div>
+            `,
+            choices: [' '], // Allow spacebar to end trial
+            trial_duration: 120000, // 2 minutes
+            on_load: function() {
+                // Show timer
+                const timerEl = document.getElementById('timer');
+                timerEl.style.display = 'block';
+                
+                // Get the audio element and play soundtrack
+                const song = document.getElementById('song');
+                song.currentTime = 0;  // Reset to start
+                song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
+                
+                // Start webcam
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    audio: false
+                })
+                .then(function(stream) {
+                    const video = document.getElementById('webcam');
+                    video.srcObject = stream;
+                    
+                    // Set up timer
+                    let timeLeft = 120; // 2 minutes
+                    const updateTimer = () => {
+                        const minutes = Math.floor(timeLeft / 60);
+                        const seconds = timeLeft % 60;
+                        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        
+                        if (timeLeft > 0) {
+                            timeLeft--;
+                            setTimeout(updateTimer, 1000);
+                        }
+                    };
+                    
+                    updateTimer();
+                    
+                    // Stop everything after 2 minutes
+                    setTimeout(() => {
+                        stream.getTracks().forEach(track => track.stop());
+                        song.pause();
+                        timerEl.style.display = 'none';
+                    }, 120000); // 2 minutes
+                })
+                .catch(function(err) {
+                    console.error("Error accessing webcam:", err);
+                    alert('Error accessing webcam. Please make sure you have granted camera permissions.');
+                });
+            },
+            on_finish: function() {
+                // Stop the song and hide timer
+                const song = document.getElementById('song');
+                song.pause();
+                song.currentTime = 0;
+                document.getElementById('timer').style.display = 'none';
+                
+                // Clean up WebGazer
+                webgazer.end();
+            }
+        };
+
+        // Complete message
+        const complete = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Mirror experiment complete!</h2>
+                <p>Please press Continue in the main study window to proceed.</p>
+            `,
+            choices: ['Ok'],
+        };
+
+        // timeline
+        const timeline = [
+            calibrationTrial,
+            mirrorTrial,
+            complete
+        ];
+
+        // Start the experiment
+        jsPsych.run(timeline);
+    </script>
+</body>
+</html>
