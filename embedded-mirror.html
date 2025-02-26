@@ -93,208 +93,259 @@
             text-align: center;
         }
         
-        /* Ensure buttons display properly */
-        .jspsych-btn {
+        /* Make buttons more prominent */
+        button.jspsych-btn {
             margin: 10px;
-            padding: 10px 20px;
-            font-size: 18px;
+            padding: 15px 30px;
+            font-size: 24px;
             background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            display: inline-block;
+            z-index: 1000;
+        }
+        
+        #start-btn-container {
+            position: relative;
+            z-index: 1000;
+            text-align: center;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <div id="jspsych-target"></div>
     <div id="timer">00:00</div>
-    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
-    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    <div id="start-btn-container"></div>
+    
+    <!-- Use direct file references with path to assets -->
+    <audio id="chime" preload="auto" src="https://sociallearninglab.github.io/baby_view_baby/mp3/chime.mp3"></audio>
+    <audio id="song" preload="auto" src="https://sociallearninglab.github.io/baby_view_baby/mp3/song.mp3"></audio>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize jsPsych
-            const jsPsych = initJsPsych({
-                display_element: 'jspsych-target',
-                on_finish: function() {
-                    console.log("Mirror experiment completed");
-                }
+        // Wait for full DOM load before initializing jsPsych
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM fully loaded");
+            
+            // Create button manually first to ensure AudioContext activation
+            const startBtnContainer = document.getElementById('start-btn-container');
+            const manualStartBtn = document.createElement('button');
+            manualStartBtn.textContent = 'START EXPERIMENT';
+            manualStartBtn.className = 'jspsych-btn';
+            manualStartBtn.style.fontSize = '24px';
+            manualStartBtn.style.padding = '15px 30px';
+            startBtnContainer.appendChild(manualStartBtn);
+            
+            // Initialize audio context on user interaction
+            manualStartBtn.addEventListener('click', function() {
+                console.log("Manual start button clicked");
+                startBtnContainer.style.display = 'none';
+                
+                // Create and start AudioContext
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioContext();
+                
+                // Initialize jsPsych
+                initializeExperiment();
             });
             
-            // Start button
-            const startButton = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div class="fullscreen-container">
-                        <h1>Mirror Experiment</h1>
-                        <p>Click the button below to start</p>
-                    </div>
-                `,
-                choices: ['START']
-            };
-            
-            // Calibration with auto-advance
-            const calibrationTrial = {
-                type: jsPsychHtmlKeyboardResponse,
-                stimulus: `
-                    <div class="fullscreen-container">
-                        <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
-                        <p style="position: fixed; bottom: 20px; width: 100%; text-align: center;">Watch the red dot</p>
-                    </div>
-                `,
-                choices: "NO_KEYS",
-                trial_duration: 10000, // 10 seconds total for calibration
-                on_load: function() {
-                    const point = document.getElementById('calibration-point');
-                    const chime = document.getElementById('chime');
-                    
-                    // Move the dot and play sound
-                    const positions = [
-                        { left: '50%', top: '50%' },
-                        { left: '20%', top: '50%' },
-                        { left: '80%', top: '50%' },
-                        { left: '50%', top: '20%' },
-                        { left: '50%', top: '80%' }
-                    ];
-                    
-                    let currentPos = 0;
-                    
-                    function moveDot() {
-                        if (currentPos < positions.length) {
-                            point.style.left = positions[currentPos].left;
-                            point.style.top = positions[currentPos].top;
-                            
-                            // Play sound
-                            chime.currentTime = 0;
-                            chime.play().catch(e => console.log("Audio error:", e));
-                            
-                            currentPos++;
-                            setTimeout(moveDot, 2000);
-                        }
+            function initializeExperiment() {
+                console.log("Initializing experiment");
+                
+                // Initialize jsPsych
+                const jsPsych = initJsPsych({
+                    display_element: 'jspsych-target',
+                    on_finish: function() {
+                        console.log("Mirror experiment completed");
                     }
-                    
-                    // Start the sequence
-                    moveDot();
-                }
-            };
-            
-            // Mirror trial - fullscreen
-            const mirrorTrial = {
-                type: jsPsychHtmlKeyboardResponse,
-                stimulus: `
-                    <div id="webcam-container">
-                        <video id="webcam" autoplay playsinline></video>
-                    </div>
-                `,
-                choices: "NO_KEYS",
-                trial_duration: 120000, // 2 minutes
-                on_load: function() {
-                    // Show timer
-                    const timerEl = document.getElementById('timer');
-                    timerEl.style.display = 'block';
-                    
-                    // Try to request fullscreen for better immersion
-                    try {
-                        const elem = document.documentElement;
-                        if (elem.requestFullscreen) {
-                            elem.requestFullscreen();
-                        } else if (elem.webkitRequestFullscreen) {
-                            elem.webkitRequestFullscreen();
-                        } else if (elem.msRequestFullscreen) {
-                            elem.msRequestFullscreen();
+                });
+                
+                // Start button
+                const startButton = {
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: `
+                        <div class="fullscreen-container">
+                            <h1>Mirror Experiment</h1>
+                            <p>Click the button below to start</p>
+                        </div>
+                    `,
+                    choices: ['START'],
+                    button_html: '<button class="jspsych-btn">%choice%</button>'
+                };
+                
+                // Calibration with auto-advance
+                const calibrationTrial = {
+                    type: jsPsychHtmlKeyboardResponse,
+                    stimulus: `
+                        <div class="fullscreen-container">
+                            <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                            <p style="position: fixed; bottom: 20px; width: 100%; text-align: center;">Watch the red dot</p>
+                        </div>
+                    `,
+                    choices: "NO_KEYS",
+                    trial_duration: 10000, // 10 seconds total for calibration
+                    on_load: function() {
+                        const point = document.getElementById('calibration-point');
+                        const chime = document.getElementById('chime');
+                        
+                        console.log("Calibration started");
+                        
+                        // Test audio
+                        chime.play()
+                            .then(() => console.log("Audio playing successfully"))
+                            .catch(e => console.error("Audio error:", e));
+                        
+                        // Move the dot and play sound
+                        const positions = [
+                            { left: '50%', top: '50%' },
+                            { left: '20%', top: '50%' },
+                            { left: '80%', top: '50%' },
+                            { left: '50%', top: '20%' },
+                            { left: '50%', top: '80%' }
+                        ];
+                        
+                        let currentPos = 0;
+                        
+                        function moveDot() {
+                            if (currentPos < positions.length) {
+                                point.style.left = positions[currentPos].left;
+                                point.style.top = positions[currentPos].top;
+                                
+                                // Play sound
+                                chime.currentTime = 0;
+                                chime.play().catch(e => console.log("Audio error:", e));
+                                
+                                currentPos++;
+                                setTimeout(moveDot, 2000);
+                            }
                         }
-                    } catch(e) {
-                        console.log("Could not enter fullscreen: ", e);
+                        
+                        // Start the sequence
+                        moveDot();
                     }
-                    
-                    // Play song
-                    const song = document.getElementById('song');
-                    song.currentTime = 0;
-                    song.play().catch(e => console.log("Audio error:", e));
-                    
-                    // Start webcam
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 3840 }, // 4K if available
-                            height: { ideal: 2160 }
+                };
+                
+                // Mirror trial - fullscreen
+                const mirrorTrial = {
+                    type: jsPsychHtmlKeyboardResponse,
+                    stimulus: `
+                        <div id="webcam-container">
+                            <video id="webcam" autoplay playsinline></video>
+                        </div>
+                    `,
+                    choices: "NO_KEYS",
+                    trial_duration: 120000, // 2 minutes
+                    on_load: function() {
+                        console.log("Mirror trial started");
+                        
+                        // Show timer
+                        const timerEl = document.getElementById('timer');
+                        timerEl.style.display = 'block';
+                        
+                        // Try to request fullscreen for better immersion
+                        try {
+                            const elem = document.documentElement;
+                            if (elem.requestFullscreen) {
+                                elem.requestFullscreen();
+                            } else if (elem.webkitRequestFullscreen) {
+                                elem.webkitRequestFullscreen();
+                            } else if (elem.msRequestFullscreen) {
+                                elem.msRequestFullscreen();
+                            }
+                        } catch(e) {
+                            console.log("Could not enter fullscreen: ", e);
                         }
-                    })
-                    .then(function(stream) {
-                        const video = document.getElementById('webcam');
-                        video.srcObject = stream;
                         
-                        // Ensure video fills the container properly
-                        video.style.width = "100%";
-                        video.style.height = "100%";
-                        video.style.objectFit = "cover";
+                        // Play song
+                        const song = document.getElementById('song');
+                        song.currentTime = 0;
+                        song.play().catch(e => console.log("Audio error:", e));
                         
-                        // Set up timer
-                        let timeLeft = 120; // 2 minutes
-                        const updateTimer = () => {
-                            const minutes = Math.floor(timeLeft / 60);
-                            const seconds = timeLeft % 60;
-                            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                            
-                            if (timeLeft > 0) {
-                                timeLeft--;
-                                setTimeout(updateTimer, 1000);
+                        // Start webcam
+                        navigator.mediaDevices.getUserMedia({ 
+                            video: { 
+                                width: { ideal: 1920 }, // HD is more reliable across devices
+                                height: { ideal: 1080 }
                             }
-                        };
-                        
-                        updateTimer();
-                        
-                        // Stop everything after 2 minutes
-                        setTimeout(() => {
-                            stream.getTracks().forEach(track => track.stop());
-                            song.pause();
-                            timerEl.style.display = 'none';
+                        })
+                        .then(function(stream) {
+                            const video = document.getElementById('webcam');
+                            video.srcObject = stream;
                             
-                            // Exit fullscreen if we're in it
-                            if (document.exitFullscreen) {
-                                document.exitFullscreen();
-                            } else if (document.webkitExitFullscreen) {
-                                document.webkitExitFullscreen();
-                            } else if (document.msExitFullscreen) {
-                                document.msExitFullscreen();
-                            }
-                        }, 120000);
-                    })
-                    .catch(function(err) {
-                        console.error("Webcam error:", err);
-                        alert("Error accessing webcam. Please make sure you've granted camera permissions.");
-                    });
-                },
-                on_finish: function() {
-                    // Make sure everything is stopped
-                    const song = document.getElementById('song');
-                    song.pause();
-                    document.getElementById('timer').style.display = 'none';
-                }
-            };
-            
-            // Complete message
-            const complete = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div class="fullscreen-container">
-                        <h2>Mirror experiment complete!</h2>
-                        <p>Please press Continue in the main study window to proceed.</p>
-                    </div>
-                `,
-                choices: ['OK']
-            };
-            
-            // Timeline
-            const timeline = [
-                startButton,
-                calibrationTrial,  // Auto-advances after 10 seconds
-                mirrorTrial,
-                complete
-            ];
-            
-            // Start the experiment
-            jsPsych.run(timeline);
+                            // Ensure video fills the container properly
+                            video.style.width = "100%";
+                            video.style.height = "100%";
+                            video.style.objectFit = "cover";
+                            
+                            // Set up timer
+                            let timeLeft = 120; // 2 minutes
+                            const updateTimer = () => {
+                                const minutes = Math.floor(timeLeft / 60);
+                                const seconds = timeLeft % 60;
+                                timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                                
+                                if (timeLeft > 0) {
+                                    timeLeft--;
+                                    setTimeout(updateTimer, 1000);
+                                }
+                            };
+                            
+                            updateTimer();
+                            
+                            // Stop everything after 2 minutes
+                            setTimeout(() => {
+                                stream.getTracks().forEach(track => track.stop());
+                                song.pause();
+                                timerEl.style.display = 'none';
+                                
+                                // Exit fullscreen if we're in it
+                                if (document.exitFullscreen) {
+                                    document.exitFullscreen();
+                                } else if (document.webkitExitFullscreen) {
+                                    document.webkitExitFullscreen();
+                                } else if (document.msExitFullscreen) {
+                                    document.msExitFullscreen();
+                                }
+                            }, 120000);
+                        })
+                        .catch(function(err) {
+                            console.error("Webcam error:", err);
+                            alert("Error accessing webcam. Please make sure you've granted camera permissions.");
+                        });
+                    },
+                    on_finish: function() {
+                        // Make sure everything is stopped
+                        const song = document.getElementById('song');
+                        song.pause();
+                        document.getElementById('timer').style.display = 'none';
+                    }
+                };
+                
+                // Complete message
+                const complete = {
+                    type: jsPsychHtmlButtonResponse,
+                    stimulus: `
+                        <div class="fullscreen-container">
+                            <h2>Mirror experiment complete!</h2>
+                            <p>Please press Continue in the main study window to proceed.</p>
+                        </div>
+                    `,
+                    choices: ['OK'],
+                    button_html: '<button class="jspsych-btn">%choice%</button>'
+                };
+                
+                // Timeline
+                const timeline = [
+                    calibrationTrial,  // Auto-advances after 10 seconds
+                    mirrorTrial,
+                    complete
+                ];
+                
+                // Start the experiment
+                jsPsych.run(timeline);
+            }
         });
     </script>
 </body>
