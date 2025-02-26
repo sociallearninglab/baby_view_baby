@@ -2,9 +2,8 @@
 <html>
 <head>
     <title>Baby Mirror Self-Recognition</title>
-    <!-- Permissions Policy to allow camera -->
-    <meta http-equiv="Permissions-Policy" content="camera=self">
-    
+
+
     <!-- Load jsPsych with full URLs for GitHub Pages -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
@@ -12,7 +11,8 @@
     <!-- Load required plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-    
+
+
     <style>
         body, html {
             margin: 0;
@@ -34,9 +34,8 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin: 15px auto;
-            display: block;
-            text-align: center;
+            margin-top: 15px;
+            display: inline-block;
         }
         
         #webcam-container {
@@ -44,11 +43,6 @@
             height: 600px;
             background-color: black;
             margin: 0 auto;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
         
         #webcam {
@@ -90,14 +84,6 @@
         
         h1, h2, p {
             text-align: center;
-            color: white;
-        }
-        
-        #error-message {
-            color: red;
-            text-align: center;
-            padding: 20px;
-            background-color: rgba(0,0,0,0.7);
         }
     </style>
 </head>
@@ -116,6 +102,18 @@
                     console.log("Mirror experiment completed");
                 }
             });
+
+            // Check if we should reuse an existing camera stream
+            const urlParams = new URLSearchParams(window.location.search);
+            const reuseCamera = urlParams.get('reuseCamera') === 'true';
+
+            if (reuseCamera && window.parentExperimentStream) {
+                const video = document.getElementById('webcam');
+                video.srcObject = window.parentExperimentStream;
+            } 
+
+        } else {
+
             
             // Start button
             const startButton = {
@@ -125,6 +123,7 @@
                     <p>Click the button below to start</p>
                 `,
                 choices: ['START'],
+                // Don't use button_html, use the default
             };
             
             // Calibration
@@ -176,35 +175,31 @@
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
                     <div id="webcam-container">
-                        <button id="camera-access-btn" class="my-btn">Allow Camera Access</button>
                         <video id="webcam" autoplay playsinline></video>
                     </div>
                 `,
                 choices: "NO_KEYS",
                 trial_duration: 120000, // 2 minutes
                 on_load: function() {
-                    const webcamContainer = document.getElementById('webcam-container');
-                    const accessButton = document.getElementById('camera-access-btn');
-                    const video = document.getElementById('webcam');
+                    // Show timer
                     const timerEl = document.getElementById('timer');
+                    timerEl.style.display = 'block';
+                    
+                    // Play song
                     const song = document.getElementById('song');
-
-                    // Check if we should reuse an existing camera stream
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const reuseCamera = urlParams.get('reuseCamera') === 'true';
-
-                    function setupVideoStream(stream) {
+                    song.currentTime = 0;
+                    song.play().catch(e => console.log("Audio error:", e));
+                    
+                    navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user' // Prefer front-facing camera
+                    }
+                })
+                    .then(function(stream) {
+                        const video = document.getElementById('webcam');
                         video.srcObject = stream;
-                        
-                        // Hide access button
-                        accessButton.style.display = 'none';
-                        
-                        // Show timer
-                        timerEl.style.display = 'block';
-                        
-                        // Play song
-                        song.currentTime = 0;
-                        song.play().catch(e => console.log("Audio error:", e));
                         
                         // Set up timer
                         let timeLeft = 120; // 2 minutes
@@ -227,60 +222,29 @@
                             song.pause();
                             timerEl.style.display = 'none';
                         }, 120000);
-                    }
+                    })
 
-                    // Function to handle camera access errors
-                    function handleCameraError(err) {
-                        console.error("Detailed webcam error:", err);
+                    .catch(function(err) {
+                        console.error("Webcam access error:", err);
                         
-                        // Create a more informative error message
+                        // visible error message logging
                         const errorDiv = document.createElement('div');
-                        errorDiv.id = 'error-message';
+                        errorDiv.style.color = 'red';
+                        errorDiv.style.textAlign = 'center';
+                        errorDiv.style.padding = '20px';
                         
-                        let errorMessage = 'Camera access was blocked. ';
-                        
-                        switch(err.name) {
-                            case 'NotAllowedError':
-                                errorMessage += 'Please check your browser settings and allow camera access for this site.';
-                                break;
-                            case 'NotFoundError':
-                                errorMessage += 'No camera was found on this device.';
-                                break;
-                            case 'NotReadableError':
-                                errorMessage += 'Your camera is being used by another application.';
-                                break;
-                            case 'OverconstrainedError':
-                                errorMessage += 'No camera meets the constraints requested.';
-                                break;
-                            default:
-                                errorMessage += 'An unknown error occurred.';
+                        if (err.name === 'NotAllowedError') {
+                            errorDiv.textContent = 'Camera access not allowed';
+                        } else {
+                            errorDiv.textContent = 'Error accessing webcam: ' + err.message;
                         }
                         
-                        errorDiv.textContent = errorMessage;
-                        
-                        // Clear previous content and show error
+                        // Insert the error message into the webcam container
+                        const webcamContainer = document.getElementById('webcam-container');
                         webcamContainer.innerHTML = '';
                         webcamContainer.appendChild(errorDiv);
-                    }
+                    });
 
-                    // Event listener for camera access button
-                    accessButton.onclick = function() {
-                        navigator.mediaDevices.getUserMedia({ 
-                            video: { 
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 }
-                            }
-                        })
-                        .then(function(stream) {
-                            setupVideoStream(stream);
-                        })
-                        .catch(handleCameraError);
-                    };
-
-                    // If reusing camera, try to get the stream from parent experiment
-                    if (reuseCamera && window.parentExperimentStream) {
-                        setupVideoStream(window.parentExperimentStream);
-                    }
                 },
                 on_finish: function() {
                     // Make sure everything is stopped
