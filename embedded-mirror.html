@@ -10,15 +10,22 @@
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     
-    <!-- Load WebGazer -->
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-    
     <!-- Add custom styles -->
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
+        }
+        
+        #jspsych-target {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
         
         #webcam-container {
@@ -27,12 +34,19 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            object-fit: cover;
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         
         #webcam {
-            width: 100%;
-            height: 100%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: cover;
             transform: scaleX(-1);
         }
         
@@ -44,6 +58,7 @@
             border-radius: 50%;
             transform: translate(-50%, -50%);
             animation: pulse 1s infinite;
+            z-index: 100;
         }
         
         @keyframes pulse {
@@ -64,39 +79,58 @@
             z-index: 1000;
         }
         
-        #jspsych-target {
-            width: 100vw;
-            height: 100vh;
+        .jspsych-btn {
+            font-size: 18px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        /* Full screen styling */
+        .jspsych-display-element {
+            height: 100vh !important;
         }
     </style>
 </head>
 <body>
     <div id="jspsych-target"></div>
-    <audio id="chime" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
-    <audio id="song" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
     <div id="timer" style="display: none;">00:00</div>
 
     <script>
-        let gazeData = [];
-        
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
                 console.log("Mirror experiment completed");
-                // We don't need to save any data since this is embedded directly in Lookit
             }
         });
 
+        // Start button (necessary for audio to work)
+        const startButton = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <h2>Mirror Experiment</h2>
+                <p>Click the button below to start the experiment.</p>
+            `,
+            choices: ['Start'],
+            button_html: '<button class="jspsych-btn">%choice%</button>'
+        };
+
         // Calibration sequence
         const calibrationTrial = {
-            type: jsPsychHtmlKeyboardResponse,
+            type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <div style="position: relative; width: 100vw; height: 100vh;">
+                <div style="position: relative; width: 100%; height: 50vh;">
                     <div id="calibration-point" class="calibration-point"></div>
                 </div>
+                <p style="text-align: center; margin-top: 20px;">Watch the red dot</p>
             `,
-            choices: "NO_KEYS",
-            trial_duration: 10000, // 2 seconds × 5 points
+            choices: ['Start Mirror'],
+            button_html: '<button class="jspsych-btn">%choice%</button>',
             on_load: function() {
                 const point = document.getElementById('calibration-point');
                 const chime = document.getElementById('chime');
@@ -114,31 +148,15 @@
                         point.style.left = positions[currentPosition].left;
                         point.style.top = positions[currentPosition].top;
                         // Play chime sound
-                        chime.currentTime = 0;  // Reset the audio to start
+                        chime.currentTime = 0;
                         chime.play().catch(e => console.log("Audio play failed:", e));
                         currentPosition++;
                         setTimeout(movePoint, 2000); // Move every 2 seconds
                     }
                 }
 
+                // Start moving the dot
                 movePoint();
-                
-                // Initialize WebGazer but don't show any UI elements
-                webgazer.begin();
-                webgazer.showVideoPreview(false);
-                webgazer.showPredictionPoints(false);
-                
-                // Set up gaze listener
-                webgazer.setGazeListener(function(data, elapsedTime) {
-                    if (data == null) return;
-                    
-                    // Store gaze data without showing the dot
-                    gazeData.push({
-                        timestamp: Date.now(),
-                        x: data.x,
-                        y: data.y
-                    });
-                }).begin();
             }
         };
 
@@ -150,7 +168,7 @@
                     <video id="webcam" autoplay playsinline></video>
                 </div>
             `,
-            choices: [' '], // Allow spacebar to end trial
+            choices: "NO_KEYS",
             trial_duration: 120000, // 2 minutes
             on_load: function() {
                 // Show timer
@@ -159,12 +177,31 @@
                 
                 // Get the audio element and play soundtrack
                 const song = document.getElementById('song');
-                song.currentTime = 0;  // Reset to start
-                song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
+                song.currentTime = 0;
+                song.play().catch(e => console.log("Audio play failed:", e));
+                
+                // Request fullscreen for better experience
+                try {
+                    const container = document.getElementById('jspsych-target');
+                    if (container.requestFullscreen) {
+                        container.requestFullscreen();
+                    } else if (container.mozRequestFullScreen) {
+                        container.mozRequestFullScreen();
+                    } else if (container.webkitRequestFullscreen) {
+                        container.webkitRequestFullscreen();
+                    } else if (container.msRequestFullscreen) {
+                        container.msRequestFullscreen();
+                    }
+                } catch (e) {
+                    console.log("Fullscreen request failed:", e);
+                }
                 
                 // Start webcam
                 navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    video: { 
+                        width: { ideal: 3840 }, // 4K
+                        height: { ideal: 2160 }
+                    },
                     audio: false
                 })
                 .then(function(stream) {
@@ -191,6 +228,17 @@
                         stream.getTracks().forEach(track => track.stop());
                         song.pause();
                         timerEl.style.display = 'none';
+                        
+                        // Exit fullscreen
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        } else if (document.mozCancelFullScreen) {
+                            document.mozCancelFullScreen();
+                        } else if (document.webkitExitFullscreen) {
+                            document.webkitExitFullscreen();
+                        } else if (document.msExitFullscreen) {
+                            document.msExitFullscreen();
+                        }
                     }, 120000); // 2 minutes
                 })
                 .catch(function(err) {
@@ -204,9 +252,6 @@
                 song.pause();
                 song.currentTime = 0;
                 document.getElementById('timer').style.display = 'none';
-                
-                // Clean up WebGazer
-                webgazer.end();
             }
         };
 
@@ -218,11 +263,13 @@
                 <p>Please press Continue in the main study window to proceed.</p>
             `,
             choices: ['Ok'],
+            button_html: '<button class="jspsych-btn">%choice%</button>'
         };
 
         // timeline
         const timeline = [
-            calibrationTrial,
+            startButton,        // Need user interaction first for audio to work
+            calibrationTrial,   // Changed to button response type
             mirrorTrial,
             complete
         ];
