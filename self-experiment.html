@@ -45,6 +45,18 @@
             50% { transform: translate(-50%, -50%) scale(1.5); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -56,35 +68,65 @@
         // Get participant ID from URL parameters (sent by Lookit)
         const urlParams = new URLSearchParams(window.location.search);
         const participantId = urlParams.get('participantId') || 'unknown';
+        console.log("Received participantId:", participantId);
+        
         let gazeData = [];
-        let mediaRecorder;
-        const recordedChunks = [];
+        let completionStatus = "not_started";
+        
+        // Function to send data back to Lookit
+        function sendToLookit(data) {
+            console.log("Attempting to send data to Lookit");
+            try {
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'taskComplete',
+                        data: data
+                    }, '*');
+                    console.log("Data sent to Lookit via postMessage");
+                    
+                    // Display message to user
+                    const notification = document.createElement('div');
+                    notification.className = 'notification';
+                    notification.textContent = 'Data sent to Lookit. You can now close this tab and return to the study.';
+                    document.body.appendChild(notification);
+                    
+                    // Remove notification after 10 seconds
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 10000);
+                } else {
+                    console.error("Window opener not available");
+                    alert("Cannot communicate with Lookit. Please close this tab and return to the study.");
+                }
+            } catch (e) {
+                console.error("Error sending data to Lookit:", e);
+                alert("Error sending data to Lookit. Please close this tab and return to the study.");
+            }
+        }
 
         // Initialize jsPsych
         const jsPsych = initJsPsych({
             on_finish: function() {
-                // Prepare metadata to send back to Lookit
+                completionStatus = "completed";
+                
+                // Prepare data to send back to Lookit
                 const experimentData = {
                     participantId: participantId,
                     timestamp: new Date().toISOString(),
                     experimentComplete: true,
-                    // Send just a sample of the gaze data (first 20 points)
                     gazeSample: gazeData.slice(0, 20),
-                    // Add metadata about recording
                     recordingInfo: {
                         durationMs: 120000,
                         dataPoints: gazeData.length,
                         complete: true
                     }
                 };
-
-                // Send a message back to Lookit
-                window.opener.postMessage({
-                    type: 'taskComplete',
-                    data: experimentData
-                }, '*');
                 
-                // Log completion to console but don't download anything
+                // Send data to Lookit
+                sendToLookit(experimentData);
+                
                 console.log("Experiment completed for participant: " + participantId);
                 console.log("Data collected: " + gazeData.length + " gaze data points");
             }
@@ -96,6 +138,7 @@
             stimulus: `
                 <h1>Welcome!</h1>
                 <p>Thank you for participating in our study about how babies view faces!</p>
+                <p>Participant ID: ${participantId}</p>
             `,
             choices: ['Begin'],
         };
@@ -109,6 +152,7 @@
             `,
             choices: ['Begin'],
             on_load: function() {
+                completionStatus = "in_progress";
                 webgazer.begin();
                 webgazer.showVideoPreview(false);
                 webgazer.showPredictionPoints(false);
@@ -200,17 +244,9 @@
                     const video = document.getElementById('webcam');
                     video.srcObject = stream;
 
-                    // We still set up the recorder for consistency, but don't save data
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-
                     // Stop recording after 2 minutes or if spacebar pressed
                     setTimeout(() => {
-                        if (mediaRecorder.state !== 'inactive') {
-                            mediaRecorder.stop();
-                        }
                         stream.getTracks().forEach(track => track.stop());
-
                         song.pause();  // Stop the song when trial ends
                         song.currentTime = 0; // Reset song for potential reuse
                     }, 120000); // 2 minutes
@@ -234,9 +270,35 @@
             stimulus: `
                 <h2>Thank you for participating!</h2>
                 <p>We are studying how babies respond to seeing themselves.</p>
+                <p>The experiment is now complete. You will be redirected back to Lookit.</p>
+                <p>If you are not automatically redirected, please close this tab and continue the study on Lookit.</p>
             `,
             choices: ['Complete Study'],
         };
+
+        // Handle window events
+        window.addEventListener('beforeunload', function(e) {
+            if (completionStatus === "in_progress") {
+                // Send partial data if user closes window before completion
+                const experimentData = {
+                    participantId: participantId,
+                    timestamp: new Date().toISOString(),
+                    experimentComplete: false,
+                    gazeSample: gazeData.slice(0, 20),
+                    recordingInfo: {
+                        complete: false,
+                        reason: "window_closed",
+                        dataPoints: gazeData.length
+                    }
+                };
+                
+                sendToLookit(experimentData);
+                
+                // Modern browsers require returnValue to be set
+                e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
+                return e.returnValue;
+            }
+        });
 
         // timeline
         const timeline = [
