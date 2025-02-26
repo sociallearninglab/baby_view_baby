@@ -1,70 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Baby Mirror Self-Recognition</title>
-    <!-- Load jsPsych with full URLs for GitHub Pages -->
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
-    <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
-    
-    <!-- Load required plugins -->
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
-    
-    <!-- Add custom styles -->
+    <title>Mirror Experiment</title>
     <style>
-        html, body {
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        
-        #jspsych-target {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        
-        #webcam-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: #000;
+            font-family: Arial, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .start-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            font-size: 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        
+        .webcam-container {
+            width: 100%;
+            height: 600px;
+            background-color: black;
+            display: none;
         }
         
         #webcam {
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            object-fit: cover;
+            width: 100%;
+            height: 100%;
             transform: scaleX(-1);
-        }
-        
-        .calibration-point {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            background: red;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulse 1s infinite;
-            z-index: 100;
-        }
-        
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.5); }
-            100% { transform: translate(-50%, -50%) scale(1); }
+            object-fit: cover;
         }
         
         #timer {
@@ -76,230 +62,113 @@
             padding: 5px 10px;
             border-radius: 5px;
             font-size: 18px;
-            z-index: 1000;
+            display: none;
         }
         
-        /* Style the button */
-        .jspsych-btn {
-            display: inline-block;
-            font-size: 22px;
-            padding: 15px 30px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 20px auto;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        /* Button hover effect */
-        .jspsych-btn:hover {
-            background-color: #45a049;
-        }
-        
-        /* Button container */
-        .button-container {
+        .completion-message {
+            display: none;
             text-align: center;
-            width: 100%;
-            margin: 30px 0;
-            position: relative;
-            z-index: 100;
-        }
-        
-        /* Center the content */
-        .content-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            width: 100%;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        
-        /* Clear text */
-        h1, h2, p {
-            text-align: center;
-            margin: 10px 0;
-            color: #333;
-        }
-        
-        h1 {
-            font-size: 32px;
-        }
-        
-        h2 {
-            font-size: 28px;
-        }
-        
-        p {
-            font-size: 22px;
         }
     </style>
 </head>
 <body>
-    <div id="jspsych-target"></div>
-    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
-    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
-    <div id="timer" style="display: none;">00:00</div>
-
+    <div class="container">
+        <h1>Mirror Experiment</h1>
+        
+        <div id="start-section">
+            <p>Click the button below to start the mirror experiment</p>
+            <button id="start-button" class="start-button">START</button>
+        </div>
+        
+        <div id="webcam-container" class="webcam-container">
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+        
+        <div id="completion-message" class="completion-message">
+            <h2>Mirror experiment complete!</h2>
+            <p>Please press Continue in the main study window to proceed.</p>
+        </div>
+    </div>
+    
+    <div id="timer">00:00</div>
+    
+    <audio id="song" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    
     <script>
-        // Initialize jsPsych
-        const jsPsych = initJsPsych({
-            on_finish: function() {
-                console.log("Mirror experiment completed");
-            }
-        });
-
-        // Start button (necessary for audio to work)
-        const startButton = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <div class="content-container">
-                    <h1>Mirror Experiment</h1>
-                    <p>Click the green button below to start</p>
-                </div>
-            `,
-            choices: ['START EXPERIMENT'],
-            button_html: '<button class="jspsych-btn">%choice%</button>'
-        };
-
-        // Calibration sequence
-        const calibrationTrial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div style="position: relative; width: 100%; height: 400px;">
-                    <div id="calibration-point" class="calibration-point"></div>
-                </div>
-                <div class="button-container">
-                    <p>Watch the red dot</p>
-                    <p>The mirror will start automatically after calibration</p>
-                </div>
-            `,
-            choices: "NO_KEYS",
-            trial_duration: 10000, // 10 seconds for calibration
-            on_load: function() {
-                const point = document.getElementById('calibration-point');
-                const chime = document.getElementById('chime');
-                const positions = [
-                    { left: '50%', top: '50%' },  // center
-                    { left: '20%', top: '50%' },  // left
-                    { left: '80%', top: '50%' },  // right
-                    { left: '50%', top: '20%' },  // top
-                    { left: '50%', top: '80%' }   // bottom
-                ];
-                let currentPosition = 0;
-
-                function movePoint() {
-                    if (currentPosition < positions.length) {
-                        point.style.left = positions[currentPosition].left;
-                        point.style.top = positions[currentPosition].top;
-                        // Play chime sound
-                        chime.currentTime = 0;
-                        chime.play().catch(e => console.log("Audio play failed:", e));
-                        currentPosition++;
-                        setTimeout(movePoint, 2000); // Move every 2 seconds
+        // Get elements
+        const startButton = document.getElementById('start-button');
+        const startSection = document.getElementById('start-section');
+        const webcamContainer = document.getElementById('webcam-container');
+        const webcam = document.getElementById('webcam');
+        const timer = document.getElementById('timer');
+        const completionMessage = document.getElementById('completion-message');
+        const song = document.getElementById('song');
+        
+        // Add event listener to start button
+        startButton.addEventListener('click', startExperiment);
+        
+        function startExperiment() {
+            // Hide start section and show webcam
+            startSection.style.display = 'none';
+            webcamContainer.style.display = 'block';
+            
+            // Show timer
+            timer.style.display = 'block';
+            
+            // Play song
+            song.play().catch(e => console.log("Audio error:", e));
+            
+            // Start webcam
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                } 
+            })
+            .then(function(stream) {
+                webcam.srcObject = stream;
+                
+                // Set up timer
+                let timeLeft = 120; // 2 minutes
+                const updateTimer = () => {
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        setTimeout(updateTimer, 1000);
+                    } else {
+                        // Time's up
+                        endExperiment(stream);
                     }
-                }
-
-                // Start moving the dot
-                movePoint();
-            }
-        };
-
-        // Mirror trial
-        const mirrorTrial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div id="webcam-container">
-                    <video id="webcam" autoplay playsinline></video>
-                </div>
-            `,
-            choices: "NO_KEYS",
-            trial_duration: 120000, // 2 minutes
-            on_load: function() {
-                // Show timer
-                const timerEl = document.getElementById('timer');
-                timerEl.style.display = 'block';
+                };
                 
-                // Get the audio element and play soundtrack
-                const song = document.getElementById('song');
-                song.currentTime = 0;
-                song.play().catch(e => console.log("Audio play failed:", e));
-                
-                // Start webcam
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1920 }, // Full HD
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
-                })
-                .then(function(stream) {
-                    const video = document.getElementById('webcam');
-                    video.srcObject = stream;
-                    
-                    // Set up timer
-                    let timeLeft = 120; // 2 minutes
-                    const updateTimer = () => {
-                        const minutes = Math.floor(timeLeft / 60);
-                        const seconds = timeLeft % 60;
-                        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                        
-                        if (timeLeft > 0) {
-                            timeLeft--;
-                            setTimeout(updateTimer, 1000);
-                        }
-                    };
-                    
-                    updateTimer();
-                    
-                    // Stop everything after 2 minutes
-                    setTimeout(() => {
-                        stream.getTracks().forEach(track => track.stop());
-                        song.pause();
-                        timerEl.style.display = 'none';
-                    }, 120000); // 2 minutes
-                })
-                .catch(function(err) {
-                    console.error("Error accessing webcam:", err);
-                    alert('Error accessing webcam. Please make sure you have granted camera permissions.');
-                });
-            },
-            on_finish: function() {
-                // Stop the song and hide timer
-                const song = document.getElementById('song');
-                song.pause();
-                song.currentTime = 0;
-                document.getElementById('timer').style.display = 'none';
+                updateTimer();
+            })
+            .catch(function(err) {
+                console.error("Webcam error:", err);
+                alert("Error accessing webcam. Please make sure you've granted camera permissions.");
+            });
+        }
+        
+        function endExperiment(stream) {
+            // Stop webcam
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
             }
-        };
-
-        // Complete message
-        const complete = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <div class="content-container">
-                    <h2>Mirror experiment complete!</h2>
-                    <p>Please press Continue in the main study window to proceed.</p>
-                </div>
-            `,
-            choices: ['OK'],
-            button_html: '<button class="jspsych-btn">%choice%</button>'
-        };
-
-        // timeline
-        const timeline = [
-            startButton,
-            calibrationTrial,
-            mirrorTrial,
-            complete
-        ];
-
-        // Start the experiment
-        jsPsych.run(timeline);
+            
+            // Stop audio
+            song.pause();
+            song.currentTime = 0;
+            
+            // Hide webcam and timer
+            webcamContainer.style.display = 'none';
+            timer.style.display = 'none';
+            
+            // Show completion message
+            completionMessage.style.display = 'block';
+        }
     </script>
 </body>
 </html>
