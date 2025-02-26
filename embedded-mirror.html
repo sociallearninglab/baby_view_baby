@@ -15,31 +15,31 @@
             margin: 0;
             padding: 0;
             height: 100%;
+            width: 100%;
             overflow: hidden;
         }
         
         #jspsych-target {
             position: relative !important;
-            overflow: visible !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
         }
         
-        .my-btn {
-            padding: 12px 24px;
-            font-size: 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-            display: inline-block;
+        .jspsych-content {
+            max-width: 100% !important;
+            width: 100% !important;
         }
         
         #webcam-container {
-            width: 100%;
-            height: 600px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             background-color: black;
-            margin: 0 auto;
+            margin: 0;
+            padding: 0;
         }
         
         #webcam {
@@ -51,8 +51,8 @@
         
         .calibration-point {
             position: absolute;
-            width: 25px;
-            height: 25px;
+            width: 30px;
+            height: 30px;
             background: red;
             border-radius: 50%;
             transform: translate(-50%, -50%);
@@ -79,8 +79,30 @@
             z-index: 100;
         }
         
+        .fullscreen-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
         h1, h2, p {
             text-align: center;
+        }
+        
+        /* Ensure buttons display properly */
+        .jspsych-btn {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -104,23 +126,25 @@
             const startButton = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <h1>Mirror Experiment</h1>
-                    <p>Click the button below to start</p>
+                    <div class="fullscreen-container">
+                        <h1>Mirror Experiment</h1>
+                        <p>Click the button below to start</p>
+                    </div>
                 `,
-                choices: ['START'],
-                // Don't use button_html, use the default
+                choices: ['START']
             };
             
-            // Calibration
+            // Calibration with auto-advance
             const calibrationTrial = {
-                type: jsPsychHtmlButtonResponse,
+                type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
-                    <div style="position: relative; width: 100%; height: 300px;">
+                    <div class="fullscreen-container">
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                        <p style="position: fixed; bottom: 20px; width: 100%; text-align: center;">Watch the red dot</p>
                     </div>
-                    <p>Watch the red dot</p>
                 `,
-                choices: ['Continue to Mirror'],
+                choices: "NO_KEYS",
+                trial_duration: 10000, // 10 seconds total for calibration
                 on_load: function() {
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
@@ -155,7 +179,7 @@
                 }
             };
             
-            // Mirror trial
+            // Mirror trial - fullscreen
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
@@ -170,6 +194,20 @@
                     const timerEl = document.getElementById('timer');
                     timerEl.style.display = 'block';
                     
+                    // Try to request fullscreen for better immersion
+                    try {
+                        const elem = document.documentElement;
+                        if (elem.requestFullscreen) {
+                            elem.requestFullscreen();
+                        } else if (elem.webkitRequestFullscreen) {
+                            elem.webkitRequestFullscreen();
+                        } else if (elem.msRequestFullscreen) {
+                            elem.msRequestFullscreen();
+                        }
+                    } catch(e) {
+                        console.log("Could not enter fullscreen: ", e);
+                    }
+                    
                     // Play song
                     const song = document.getElementById('song');
                     song.currentTime = 0;
@@ -178,13 +216,18 @@
                     // Start webcam
                     navigator.mediaDevices.getUserMedia({ 
                         video: { 
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 }
+                            width: { ideal: 3840 }, // 4K if available
+                            height: { ideal: 2160 }
                         }
                     })
                     .then(function(stream) {
                         const video = document.getElementById('webcam');
                         video.srcObject = stream;
+                        
+                        // Ensure video fills the container properly
+                        video.style.width = "100%";
+                        video.style.height = "100%";
+                        video.style.objectFit = "cover";
                         
                         // Set up timer
                         let timeLeft = 120; // 2 minutes
@@ -206,6 +249,15 @@
                             stream.getTracks().forEach(track => track.stop());
                             song.pause();
                             timerEl.style.display = 'none';
+                            
+                            // Exit fullscreen if we're in it
+                            if (document.exitFullscreen) {
+                                document.exitFullscreen();
+                            } else if (document.webkitExitFullscreen) {
+                                document.webkitExitFullscreen();
+                            } else if (document.msExitFullscreen) {
+                                document.msExitFullscreen();
+                            }
                         }, 120000);
                     })
                     .catch(function(err) {
@@ -225,8 +277,10 @@
             const complete = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <h2>Mirror experiment complete!</h2>
-                    <p>Please press Continue in the main study window to proceed.</p>
+                    <div class="fullscreen-container">
+                        <h2>Mirror experiment complete!</h2>
+                        <p>Please press Continue in the main study window to proceed.</p>
+                    </div>
                 `,
                 choices: ['OK']
             };
@@ -234,7 +288,7 @@
             // Timeline
             const timeline = [
                 startButton,
-                calibrationTrial,
+                calibrationTrial,  // Auto-advances after 10 seconds
                 mirrorTrial,
                 complete
             ];
