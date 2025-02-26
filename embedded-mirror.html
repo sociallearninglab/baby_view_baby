@@ -175,13 +175,13 @@
                     song.currentTime = 0;
                     song.play().catch(e => console.log("Audio error:", e));
                     
-                    // Start webcam
                     navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 }
-                        }
-                    })
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user' // Prefer front-facing camera
+                    }
+                })
                     .then(function(stream) {
                         const video = document.getElementById('webcam');
                         video.srcObject = stream;
