@@ -2,34 +2,44 @@
 <html>
 <head>
     <title>Baby Mirror Self-Recognition</title>
+    <!-- Load jsPsych with full URLs for GitHub Pages -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
+    <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
+    
+    <!-- Load required plugins -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
+    
     <style>
         body, html {
             margin: 0;
             padding: 0;
             height: 100%;
-            width: 100%;
             overflow: hidden;
-            background-color: white;
         }
         
-        #main-container {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+        #jspsych-target {
+            position: relative !important;
+            overflow: visible !important;
+        }
+        
+        .my-btn {
+            padding: 12px 24px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            display: inline-block;
         }
         
         #webcam-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 600px;
             background-color: black;
-            display: none;
+            margin: 0 auto;
         }
         
         #webcam {
@@ -41,14 +51,13 @@
         
         .calibration-point {
             position: absolute;
-            width: 30px;
-            height: 30px;
+            width: 25px;
+            height: 25px;
             background: red;
             border-radius: 50%;
             transform: translate(-50%, -50%);
             animation: pulse 1s infinite;
             z-index: 100;
-            display: none;
         }
         
         @keyframes pulse {
@@ -72,253 +81,166 @@
         
         h1, h2, p {
             text-align: center;
-            color: #333;
-        }
-        
-        button {
-            margin: 20px;
-            padding: 15px 30px;
-            font-size: 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        button:hover {
-            background-color: #45a049;
-        }
-        
-        #calibration-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: white;
-            display: none;
-        }
-        
-        #complete-container {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: white;
-            text-align: center;
-            padding-top: 20vh;
         }
     </style>
 </head>
 <body>
-    <div id="main-container">
-        <h1>Mirror Experiment</h1>
-        <p>Click the button below to start</p>
-        <button id="start-button">START</button>
-    </div>
-    
-    <div id="calibration-container">
-        <div id="calibration-point" class="calibration-point"></div>
-        <p style="position: fixed; bottom: 20px; width: 100%; text-align: center; color: black;">Watch the red dot</p>
-    </div>
-    
-    <div id="webcam-container">
-        <video id="webcam" autoplay playsinline></video>
-        <div id="timer">00:00</div>
-    </div>
-    
-    <div id="complete-container">
-        <h2>Mirror experiment complete!</h2>
-        <p>Please press Continue in the main study window to proceed.</p>
-        <button id="complete-button">OK</button>
-    </div>
+    <div id="jspsych-target"></div>
+    <div id="timer">00:00</div>
+    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
 
-    <audio id="chime" preload="auto" src="https://sociallearninglab.github.io/baby_view_baby/mp3/chime.mp3"></audio>
-    <audio id="song" preload="auto" src="https://sociallearninglab.github.io/baby_view_baby/mp3/song.mp3"></audio>
-    
     <script>
-        console.log("Mirror experiment v1.0 loaded");
-        document.title = "Mirror Exp v1.0"; // Will show in browser tab
-        </script>
-        
-    <script>
-        // Wait for full DOM load
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("DOM fully loaded");
-            
-            // Elements
-            const mainContainer = document.getElementById('main-container');
-            const startButton = document.getElementById('start-button');
-            const calibrationContainer = document.getElementById('calibration-container');
-            const calibrationPoint = document.getElementById('calibration-point');
-            const webcamContainer = document.getElementById('webcam-container');
-            const webcam = document.getElementById('webcam');
-            const timer = document.getElementById('timer');
-            const completeContainer = document.getElementById('complete-container');
-            const completeButton = document.getElementById('complete-button');
-            const chime = document.getElementById('chime');
-            const song = document.getElementById('song');
-            
-            // Set up the start button click
-            startButton.addEventListener('click', function() {
-                console.log("Start button clicked");
-                
-                // Initialize audio context
-                window.AudioContext = window.AudioContext || window.webkitAudioContext;
-                const audioCtx = new AudioContext();
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
+            // Initialize jsPsych
+            const jsPsych = initJsPsych({
+                display_element: 'jspsych-target',
+                on_finish: function() {
+                    console.log("Mirror experiment completed");
                 }
-                
-                // Hide the start screen
-                mainContainer.style.display = 'none';
-                
-                // Start calibration
-                startCalibration();
             });
             
-            // Set up the complete button click
-            completeButton.addEventListener('click', function() {
-                console.log("Complete button clicked");
-                completeContainer.style.display = 'none';
-                mainContainer.style.display = 'flex';
-            });
+            // Start button
+            const startButton = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <h1>Mirror Experiment</h1>
+                    <p>Click the button below to start</p>
+                `,
+                choices: ['START'],
+                // Don't use button_html, use the default
+            };
             
-            // Start calibration with auto-advance
-            function startCalibration() {
-                console.log("Starting calibration");
-                
-                // Show calibration container
-                calibrationContainer.style.display = 'block';
-                calibrationPoint.style.display = 'block';
-                
-                // Positions for calibration points
-                const positions = [
-                    { left: '50%', top: '50%' },
-                    { left: '20%', top: '50%' },
-                    { left: '80%', top: '50%' },
-                    { left: '50%', top: '20%' },
-                    { left: '50%', top: '80%' }
-                ];
-                
-                let currentPos = 0;
-                
-                function moveDot() {
-                    if (currentPos < positions.length) {
-                        // Set position
-                        calibrationPoint.style.left = positions[currentPos].left;
-                        calibrationPoint.style.top = positions[currentPos].top;
-                        
-                        // Play sound
-                        chime.currentTime = 0;
-                        chime.play().catch(e => console.log("Audio error:", e));
-                        
-                        currentPos++;
-                        setTimeout(moveDot, 2000);
-                    } else {
-                        // End of calibration, start mirror
-                        calibrationContainer.style.display = 'none';
-                        startMirror();
+            // Calibration
+            const calibrationTrial = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="position: relative; width: 100%; height: 300px;">
+                        <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                    </div>
+                    <p>Watch the red dot</p>
+                `,
+                choices: ['Continue to Mirror'],
+                on_load: function() {
+                    const point = document.getElementById('calibration-point');
+                    const chime = document.getElementById('chime');
+                    
+                    // Move the dot and play sound
+                    const positions = [
+                        { left: '50%', top: '50%' },
+                        { left: '20%', top: '50%' },
+                        { left: '80%', top: '50%' },
+                        { left: '50%', top: '20%' },
+                        { left: '50%', top: '80%' }
+                    ];
+                    
+                    let currentPos = 0;
+                    
+                    function moveDot() {
+                        if (currentPos < positions.length) {
+                            point.style.left = positions[currentPos].left;
+                            point.style.top = positions[currentPos].top;
+                            
+                            // Play sound
+                            chime.currentTime = 0;
+                            chime.play().catch(e => console.log("Audio error:", e));
+                            
+                            currentPos++;
+                            setTimeout(moveDot, 2000);
+                        }
                     }
+                    
+                    // Start the sequence
+                    moveDot();
                 }
-                
-                // Start the sequence
-                moveDot();
-            }
+            };
             
-            // Start mirror display
-            function startMirror() {
-                console.log("Starting mirror display");
-                
-                // Show webcam container
-                webcamContainer.style.display = 'block';
-                timer.style.display = 'block';
-                
-                // Try to request fullscreen
-                try {
-                    const elem = document.documentElement;
-                    if (elem.requestFullscreen) {
-                        elem.requestFullscreen();
-                    } else if (elem.webkitRequestFullscreen) {
-                        elem.webkitRequestFullscreen();
-                    } else if (elem.msRequestFullscreen) {
-                        elem.msRequestFullscreen();
-                    }
-                } catch(e) {
-                    console.log("Could not enter fullscreen: ", e);
+            // Mirror trial
+            const mirrorTrial = {
+                type: jsPsychHtmlKeyboardResponse,
+                stimulus: `
+                    <div id="webcam-container">
+                        <video id="webcam" autoplay playsinline></video>
+                    </div>
+                `,
+                choices: "NO_KEYS",
+                trial_duration: 120000, // 2 minutes
+                on_load: function() {
+                    // Show timer
+                    const timerEl = document.getElementById('timer');
+                    timerEl.style.display = 'block';
+                    
+                    // Play song
+                    const song = document.getElementById('song');
+                    song.currentTime = 0;
+                    song.play().catch(e => console.log("Audio error:", e));
+                    
+                    // Start webcam
+                    navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        }
+                    })
+                    .then(function(stream) {
+                        const video = document.getElementById('webcam');
+                        video.srcObject = stream;
+                        
+                        // Set up timer
+                        let timeLeft = 120; // 2 minutes
+                        const updateTimer = () => {
+                            const minutes = Math.floor(timeLeft / 60);
+                            const seconds = timeLeft % 60;
+                            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                            
+                            if (timeLeft > 0) {
+                                timeLeft--;
+                                setTimeout(updateTimer, 1000);
+                            }
+                        };
+                        
+                        updateTimer();
+                        
+                        // Stop everything after 2 minutes
+                        setTimeout(() => {
+                            stream.getTracks().forEach(track => track.stop());
+                            song.pause();
+                            timerEl.style.display = 'none';
+                        }, 120000);
+                    })
+                    .catch(function(err) {
+                        console.error("Webcam error:", err);
+                        alert("Error accessing webcam. Please make sure you've granted camera permissions.");
+                    });
+                },
+                on_finish: function() {
+                    // Make sure everything is stopped
+                    const song = document.getElementById('song');
+                    song.pause();
+                    document.getElementById('timer').style.display = 'none';
                 }
-                
-                // Play song
-                song.currentTime = 0;
-                song.play().catch(e => console.log("Audio error:", e));
-                
-                // Start webcam
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
-                })
-                .then(function(stream) {
-                    console.log("Webcam accessed successfully");
-                    
-                    // Set video source
-                    webcam.srcObject = stream;
-                    
-                    // Set up timer
-                    let timeLeft = 120; // 2 minutes
-                    const updateTimer = () => {
-                        const minutes = Math.floor(timeLeft / 60);
-                        const seconds = timeLeft % 60;
-                        timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                        
-                        if (timeLeft > 0) {
-                            timeLeft--;
-                            setTimeout(updateTimer, 1000);
-                        }
-                    };
-                    
-                    updateTimer();
-                    
-                    // Stop everything after 2 minutes
-                    setTimeout(() => {
-                        console.log("Mirror phase completed");
-                        
-                        // Stop video
-                        stream.getTracks().forEach(track => track.stop());
-                        
-                        // Stop song
-                        song.pause();
-                        
-                        // Hide webcam
-                        webcamContainer.style.display = 'none';
-                        timer.style.display = 'none';
-                        
-                        // Exit fullscreen
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen();
-                        } else if (document.webkitExitFullscreen) {
-                            document.webkitExitFullscreen();
-                        } else if (document.msExitFullscreen) {
-                            document.msExitFullscreen();
-                        }
-                        
-                        // Show completion
-                        completeContainer.style.display = 'block';
-                    }, 120000);
-                })
-                .catch(function(err) {
-                    console.error("Webcam error:", err);
-                    alert("Error accessing webcam. Please make sure you've granted camera permissions.");
-                    
-                    // Show start screen again
-                    webcamContainer.style.display = 'none';
-                    mainContainer.style.display = 'flex';
-                });
-            }
+            };
+            
+            // Complete message
+            const complete = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <h2>Mirror experiment complete!</h2>
+                    <p>Please press Continue in the main study window to proceed.</p>
+                `,
+                choices: ['OK']
+            };
+            
+            // Timeline
+            const timeline = [
+                startButton,
+                calibrationTrial,
+                mirrorTrial,
+                complete
+            ];
+            
+            // Start the experiment
+            jsPsych.run(timeline);
         });
     </script>
 </body>
