@@ -6,8 +6,6 @@
     <!-- Add permissions policy -->
     <meta http-equiv="Permissions-Policy" content="camera=self">
 
-    
-
     <!-- Load jsPsych with full URLs for GitHub Pages -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
@@ -15,7 +13,6 @@
     <!-- Load required plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-
 
     <style>
         body, html {
@@ -31,42 +28,10 @@
             height: 100%;
         }
 
-        .my-btn {
-            padding: 12px 24px;
-            font-size: 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-            display: inline-block;
-        }
-
-        #webcam-container {
-            width: 100vw;    /* Full width */
-            height: 100vh;   /* Full height */
-            background-color: black;
-            margin: 0;
-            padding: 0;
-            position: fixed;
-            top: 0;
-            left: 0;
-            overflow: hidden;
-        }
-
-        #webcam {
-            width: 100%;     /* Take full width of container */
-            height: 100%;    /* Take full height of container */
-            object-fit: cover;  /* maintaining aspect ratio */
-            transform: scaleX(-1);  /* mirror effect */
-        }
-
-
         .calibration-point {
             position: absolute;
-            width: 100%;
-            height: 100%;
+            width: 50px;
+            height: 50px;
             background: red;
             border-radius: 50%;
             transform: translate(-50%, -50%);
@@ -78,6 +43,25 @@
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.5); }
             100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        #webcam-container {
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            margin: 0;
+            padding: 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
         }
 
         #timer {
@@ -93,8 +77,15 @@
             z-index: 100;
         }
 
-        h1, h2, p {
+        .instruction-text {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
             text-align: center;
+            color: white;
+            font-size: 18px;
+            z-index: 101;
         }
     </style>
 </head>
@@ -114,153 +105,137 @@
                 }
             });
 
-            // Start button
-            const startButton = {
-                type: jsPsychHtmlButtonResponse,
+            // Calibration
+            const calibrationTrial = {
+                type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
-                    <h1>Mirror Experiment</h1>
-                    <p>Click the button below to start</p>
+                    <div style="width: 100vw; height: 100vh; position: relative; background-color: black;">
+                        <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                        <div class="instruction-text">Watch the red dot</div>
+                    </div>
                 `,
-                choices: ['START'],
-                // Don't use button_html, use the default
+                choices: "NO_KEYS",
+                trial_duration: 10000, // 10 seconds of calibration
+                on_load: function() {
+                    const point = document.getElementById('calibration-point');
+                    const chime = document.getElementById('chime');
+
+                    // Move the dot and play sound
+                    const positions = [
+                        { left: '50%', top: '50%' },
+                        { left: '20%', top: '50%' },
+                        { left: '80%', top: '50%' },
+                        { left: '50%', top: '20%' },
+                        { left: '50%', top: '80%' }
+                    ];
+
+                    let currentPos = 0;
+
+                    function moveDot() {
+                        if (currentPos < positions.length) {
+                            point.style.left = positions[currentPos].left;
+                            point.style.top = positions[currentPos].top;
+
+                            // Play sound
+                            chime.currentTime = 0;
+                            chime.play().catch(e => console.log("Audio error:", e));
+
+                            currentPos++;
+                            setTimeout(moveDot, 2000);
+                        }
+                    }
+
+                    // Start the sequence
+                    moveDot();
+                }
             };
 
-            // Calibration sequence
-        const calibrationTrial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div style="position: relative; width: 100vw; height: 100vh;">
-                    <div id="calibration-point" class="calibration-point"></div>
-                </div>
-            `,
-            choices: "NO_KEYS",
-            trial_duration: 10000, // 2 seconds × 5 points
-            on_load: function() {
-                const point = document.getElementById('calibration-point');
-                const chime = document.getElementById('chime');
-                const positions = [
-                    { left: '50%', top: '50%' },  // center
-                    { left: '20%', top: '50%' },  // left
-                    { left: '80%', top: '50%' },  // right
-                    { left: '50%', top: '20%' },  // top
-                    { left: '50%', top: '80%' }   // bottom
-                ];
-                let currentPosition = 0;
+            // Mirror trial
+            const mirrorTrial = {
+                type: jsPsychHtmlKeyboardResponse,
+                stimulus: `
+                    <div id="webcam-container">
+                        <video id="webcam" autoplay playsinline></video>
+                        <div class="instruction-text">Watch yourself in the mirror</div>
+                    </div>
+                `,
+                choices: "NO_KEYS",
+                trial_duration: 120000, // 2 minutes
+                on_load: function() {
+                    // Show timer
+                    const timerEl = document.getElementById('timer');
+                    timerEl.style.display = 'block';
 
-                function movePoint() {
-                    if (currentPosition < positions.length) {
-                        point.style.left = positions[currentPosition].left;
-                        point.style.top = positions[currentPosition].top;
-                        // Play chime sound
-                        chime.currentTime = 0;  // Reset the audio to start
-                        chime.play().catch(e => console.log("Audio play failed:", e));
-                        currentPosition++;
-                        setTimeout(movePoint, 2000); // Move every 2 seconds
-                    }
-                }
+                    // Play song
+                    const song = document.getElementById('song');
+                    song.currentTime = 0;
+                    song.play().catch(e => console.log("Audio error:", e));
 
-                movePoint();
-                
-                // Initialize WebGazer but don't show any UI elements
-                webgazer.begin();
-                webgazer.showVideoPreview(false);
-                webgazer.showPredictionPoints(false);
-                
-                // Set up gaze listener
-                webgazer.setGazeListener(function(data, elapsedTime) {
-                    if (data == null) return;
-                    
-                    // Store gaze data without showing the dot
-                    gazeData.push({
-                        timestamp: Date.now(),
-                        x: data.x,
-                        y: data.y
-                    });
-                }).begin();
-            }
-        };
-
-        // Mirror trial
-        const mirrorTrial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div id="webcam-container">
-                    <video id="webcam" autoplay playsinline></video>
-                </div>
-            `,
-            choices: [' '], // Allow spacebar to end trial
-            trial_duration: 120000, // 2 minutes
-            on_load: function() {
-                // Show timer
-                const timerEl = document.getElementById('timer');
-                timerEl.style.display = 'block';
-                
-                // Get the audio element and play soundtrack
-                const song = document.getElementById('song');
-                song.currentTime = 0;  // Reset to start
-                song.play().catch(e => console.log("Audio play failed:", e)); // Play the song
-                
-                // Start webcam
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
-                    audio: false
-                })
-                .then(function(stream) {
-                    const video = document.getElementById('webcam');
-                    video.srcObject = stream;
-                    
-                    // Set up timer
-                    let timeLeft = 120; // 2 minutes
-                    const updateTimer = () => {
-                        const minutes = Math.floor(timeLeft / 60);
-                        const seconds = timeLeft % 60;
-                        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                        
-                        if (timeLeft > 0) {
-                            timeLeft--;
-                            setTimeout(updateTimer, 1000);
+                    navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            facingMode: 'user' // Prefer front-facing camera
                         }
-                    };
-                    
-                    updateTimer();
-                    
-                    // Stop everything after 2 minutes
-                    setTimeout(() => {
-                        stream.getTracks().forEach(track => track.stop());
-                        song.pause();
-                        timerEl.style.display = 'none';
-                    }, 120000); // 2 minutes
-                })
-                .catch(function(err) {
-                    console.error("Error accessing webcam:", err);
-                    alert('Error accessing webcam. Please make sure you have granted camera permissions.');
-                });
-            },
-            on_finish: function() {
-                // Stop the song and hide timer
-                const song = document.getElementById('song');
-                song.pause();
-                song.currentTime = 0;
-                document.getElementById('timer').style.display = 'none';
-                
-                // Clean up WebGazer
-                webgazer.end();
-            }
-        };
+                    })
+                    .then(function(stream) {
+                        const video = document.getElementById('webcam');
+                        video.srcObject = stream;
+
+                        // Set up timer
+                        let timeLeft = 120; // 2 minutes
+                        const updateTimer = () => {
+                            const minutes = Math.floor(timeLeft / 60);
+                            const seconds = timeLeft % 60;
+                            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                            if (timeLeft > 0) {
+                                timeLeft--;
+                                setTimeout(updateTimer, 1000);
+                            }
+                        };
+
+                        updateTimer();
+
+                        // Stop everything after 2 minutes
+                        setTimeout(() => {
+                            stream.getTracks().forEach(track => track.stop());
+                            song.pause();
+                            timerEl.style.display = 'none';
+                        }, 120000);
+                    })
+                    .catch(function(err) {
+                        console.error("Webcam error:", err);
+                        // More informative error handling
+                        if (err.name === 'NotAllowedError') {
+                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                        } else {
+                            alert('Error accessing webcam: ' + err.message);
+                        }
+                    });
+                },
+                on_finish: function() {
+                    // Make sure everything is stopped
+                    const song = document.getElementById('song');
+                    song.pause();
+                    document.getElementById('timer').style.display = 'none';
+                }
+            };
 
             // Complete message
             const complete = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <h2>All done!</h2>
-                    <p>Please close this window and return to Lookit where you may continue</p>
+                    <div style="width: 100vw; height: 100vh; background-color: black; color: white; display: flex; justify-content: center; align-items: center; flex-direction: column;">
+                        <h2>All done!</h2>
+                        <p>Please close this window and return to Lookit where you may continue</p>
+                    </div>
                 `,
                 choices: ['OK']
             };
 
             // Timeline
             const timeline = [
-                startButton,
                 calibrationTrial,
                 mirrorTrial,
                 complete
@@ -283,3 +258,4 @@
         });
     </script>
 </body>
+</html>
