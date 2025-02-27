@@ -1,0 +1,217 @@
+function generateProtocol(child, pastSessions) {
+    return {
+        frames: {
+            'welcome': {
+                'kind': 'exp-lookit-text',
+                'blocks': [
+                    {
+                        'title': 'Welcome!'
+                    },
+                    {
+                        'text': 'Thank you for participating! Click next to continue'
+                    }
+                ],
+                'showPreviousButton': false
+            },
+            'video-config': {
+                'kind': 'exp-video-config',
+                'introText': "First, we'll make sure that you and your child are all set up."
+            },
+            
+            'start-recording': {
+                    'kind': 'exp-lookit-start-recording',
+                    'imageAnimation': 'spin',
+                    'displayFullscreen': true
+                },
+                
+                
+            'video-consent': {
+                'kind': 'exp-lookit-video-consent',
+                'template': 'consent_005',
+                'PIName': 'Research Team',
+                'institution': 'University',
+                'purpose': 'We are interested in understanding how babies recognize and respond to faces.',
+                'procedures': 'Your baby will see their own face through the webcam.',
+                'risk_statement': 'There are no risks beyond those in everyday life.',
+                'voluntary_participation': 'Participation is completely voluntary.',
+                'gdpr': false
+            },
+            
+            
+            'audio-test': {
+                'kind': 'exp-lookit-instructions',
+                'blocks': [
+                    {
+                        'title': 'Instructions (Your child does not need to be with you yet)',
+                        'listblocks': [
+                            {
+                                'text': "First, we'll make sure that you and your child are all set up."
+                            },
+                            {
+                                'text': "Then, your child will see and be able to observe themselves on the computer screen. This phase will last 2 minutes."
+                            },
+                            {
+                                'text': "First thing's first: checking your audio. Please turn the volume up so it's easy to hear but still comfortable. You should hear 'Ready to go?"
+                            }
+                        ]
+                    },
+                    {
+                        "mediaBlock": {
+                            "isVideo": false,
+                            "sources": [
+                                {
+                                    "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.mp3",
+                                    "type": "audio/mp3"
+                                },
+                                {
+                                    "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.ogg",
+                                    "type": "audio/ogg"
+                                }
+                            ],
+                            "mustPlay": true,
+                            "warningText": "Please try playing the sample audio."
+                    }
+                    }
+                ],
+                'doRecording': true,
+                'showWebcam': false,
+                'nextButtonText': 'I can hear the audio',
+            },
+            
+            
+           'instruction-video': {
+                'kind': 'exp-lookit-instructions',
+                'blocks': [
+                    {
+                        'text': "At the beginning, your child will see exciting jumping dots, which we call the \"attention getter\", because it is intended to get your child's attention. Then, a live video recording of your child will appear on the screen. So your child will see themselves on the screen in real time, with some playful music in the background. This live video will play for 2 minutes. The attention getter and the live video together form the entire study. The study should take somewhere around 3 minutes. You can pause by pressing the letter P on your keyboard or stop the experiment by pressing the escape key.",
+                        'mediaBlock': {
+                            'isVideo': false,
+                            'sources': [
+                                {
+                                    'src': 'https://sociallearninglab.github.io/baby_view_baby/mp3/intro_voiceover.mp3',
+                                    'type': 'audio/mp3'
+                                },
+                                {
+                                    'src': 'https://sociallearninglab.github.io/baby_view_baby/mp3/intro_voiceover.ogg',
+                                    'type': 'audio/ogg'
+                                }
+                            ],
+                            'autoplay': true,
+                            'mustPlay': true,
+                            "warningText": "Please finish listening to the instructions."
+                        }
+                    }
+                ],
+                'showWebcam': false,
+                'doRecording': true,
+                'nextButtonText': 'Next'
+            },
+            
+            'setup-and-final-instructions': {
+                'kind': 'exp-lookit-instructions',
+                'blocks': [
+                    {
+                        'title': "Let's get set up:",
+                        'listblocks': [
+                            {
+                                'text': "If possible, complete the study in a quiet room, away from windows, open doorways, toys, pets, siblings - interesting things to look at and reach for. For example, a home office is better than a busy kitchen (We understand if not all of this is possible!)."
+                            },
+                            {
+                                'text': "Please make sure your webcam is centered on the screen (this should be the case for most laptops)."
+                            },
+                            {
+                                'text': "If you are using two monitors, please turn one of them off."
+                            },
+                            {
+                                'text': "Please put the laptop or computer close to the baby, but far enough so that they can't reach forward and touch anything."
+                            },
+                            {
+                                'text': "Now, you can go ahead and put your child in a high chair and stand or sit behind them. If there is no high chair available, having your child on your lap is also ok."
+                            }
+                        ]
+                    },
+                    {
+                        'title': "Some final pointers",
+                        'listblocks': [
+                            {
+                                'text': "Don't worry if your child isn't looking at the screen the entire time! There's no need to direct your child's attention towards the screen, since we want to see the decisions your child makes on their own! You can just try to keep their body oriented towards the screen so they can look if they want to."
+                            },
+                            {
+                                'text': "Try to avoid peeking over your child's shoulder to see what they're doing. We want to make sure your child isn't distracted away from the screen, when they would've looked otherwise!"
+                            },
+                            {
+                                'text': "If you can do the entire study in one go, that's great. But you can also pause the study (press 'p') or stop the study (press esc-key) at any point"
+                            }
+                        ]
+                    },
+                    {
+                        'text': "Ready? If your child is set up, go ahead and press the 'Check video!' button."
+                    }
+                ],
+                'showWebcam': false,
+                'doRecording': true,
+                'nextButtonText': 'Next'
+            },
+            
+            'mirror-trial': { 
+                'kind': 'exp-lookit-instructions', 
+                'blocks': [ 
+                    { 
+                        'title': 'Click below to continue in another tab', 
+                        'text': '<a href="https://sociallearninglab.github.io/baby_view_baby/embedded-mirror.html" target="_blank">click here to continue!</a>' 
+                    }
+                ], 
+                'nextButtonDelay': 130000, // 2 minutes and 10 seconds 
+                'nextButtonText': 'Click here once you\'ve completed that', 
+                'doRecording': true,
+                'warningText': 'Please complete the mirror experiment in the new tab first. Make sure you have finished the entire 2-minute mirror experiment before clicking this button.'
+            },
+
+
+            'study-outro': {
+                'kind': 'exp-lookit-text',
+                'blocks': [
+                    {
+                        'title': "We're all done! Awesome job!",
+                        'text': "The last thing left to do is to fill out a short exit survey, where you'll be asked about to confirm some information and select your level of privacy. Once you submit that survey, there'll be a little debrief where we give more background information about the study and provide some links where you can find out more on your own."
+                    }
+                ],
+                'showWebcam': false,
+                'nextButtonText': 'Next'
+            },
+            
+            'stop-recording': {
+                'kind': 'exp-lookit-stop-recording',
+                'imageAnimation': 'spin',
+                'displayFullscreen': true,
+                'showProgressBar': true,
+                'waitForUploadMessage': 'Uploading video... Please wait.',
+            },
+
+            'exit-survey': {
+                'kind': 'exp-lookit-exit-survey',
+                'debriefing': {
+                    'title': 'Thank you for participating!',
+                    'blocks': [
+                        {
+                            'text': 'We are studying how babies respond to seeing themselves.'
+                        }
+                    ]
+                }
+            }
+        },
+        sequence: [
+            'welcome',
+            'mirror-trial',
+            'video-config',
+            'video-consent',
+            'start-recording',
+            'audio-test',
+            'instruction-video',
+            'setup-and-final-instructions',
+            'study-outro',
+            'stop-recording',
+            'exit-survey'
+        ]
+    };
+}
