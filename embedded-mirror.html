@@ -48,7 +48,7 @@
         #webcam-container {
             width: 100vw;
             height: 100vh;
-            background-color: black;
+            background-color: white;
             margin: 0;
             padding: 0;
             position: fixed;
@@ -111,7 +111,6 @@
                 stimulus: `
                     <div style="width: 100vw; height: 100vh; position: relative; background-color: black;">
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
-                        <div class="instruction-text">Watch the red dot</div>
                     </div>
                 `,
                 choices: "NO_KEYS",
@@ -156,7 +155,6 @@
                 stimulus: `
                     <div id="webcam-container">
                         <video id="webcam" autoplay playsinline></video>
-                        <div class="instruction-text">Watch yourself in the mirror</div>
                     </div>
                 `,
                 choices: "NO_KEYS",
