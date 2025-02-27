@@ -184,6 +184,9 @@
                     song.currentTime = 0;
                     song.play().catch(e => console.log("Audio error:", e));
 
+                    // Create a variable to track if we've already ended the trial
+                    let trialEnded = false;
+
                     navigator.mediaDevices.getUserMedia({ 
                         video: { 
                             width: { ideal: 1920 },
@@ -205,31 +208,34 @@
                             if (timeLeft > 0) {
                                 timeLeft--;
                                 setTimeout(updateTimer, 1000);
-                            } else {
-                                // Force the trial to end when timer reaches 0
+                            } else if (!trialEnded) {
+                                // Force the trial to end when timer reaches 0, but only if we haven't already ended it
+                                trialEnded = true;
+                                
+                                // Clean up resources
+                                stream.getTracks().forEach(track => track.stop());
+                                song.pause();
+                                timerEl.style.display = 'none';
+                                
+                                // End the trial
                                 jsPsych.finishTrial();
                             }
                         };
 
                         updateTimer();
-
-                        // Stop everything after 2 minutes
-                        setTimeout(() => {
-                            stream.getTracks().forEach(track => track.stop());
-                            song.pause();
-                            timerEl.style.display = 'none';
-                        }, 119500); // Slightly before trial ends to ensure cleanup happens
                     })
                     .catch(function(err) {
                         console.error("Webcam error:", err);
-                        // More informative error handling
                         if (err.name === 'NotAllowedError') {
                             alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
                         } else {
                             alert('Error accessing webcam: ' + err.message);
                         }
                         // End the trial if webcam fails
-                        jsPsych.finishTrial();
+                        if (!trialEnded) {
+                            trialEnded = true;
+                            jsPsych.finishTrial();
+                        }
                     });
                 },
                 on_finish: function() {
@@ -240,16 +246,21 @@
                 }
             };
 
-            // Complete message
+            // Complete message - no time limit
             const complete = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <div style="width: 100vw; height: 100vh; background-color: white; color: white; display: flex; justify-content: center; align-items: center; flex-direction: column;">
-                        <h2>All done!</h2>
-                        <p>Please close this window and return to Lookit where you may continue</p>
+                    <div style="text-align: center; padding: 20px; background-color: white; color: black;">
+                        <h2 style="color: black; font-size: 36px;">All done!</h2>
+                        <p style="color: black; font-size: 24px;">Please close this window and return to Lookit where you may continue.</p>
                     </div>
                 `,
-                choices: ['OK']
+                choices: ['Close Window'],
+                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
+                on_finish: function() {
+                    // Attempt to close the window when the button is clicked
+                    window.close();
+                }
             };
 
             // Timeline
