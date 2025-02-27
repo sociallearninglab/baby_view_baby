@@ -107,20 +107,19 @@
                 }
             });
 
-            // Attempt to enter full-screen mode
-            try {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen();
-                } else if (document.documentElement.mozRequestFullScreen) { // Firefox
-                    document.documentElement.mozRequestFullScreen();
-                } else if (document.documentElement.webkitRequestFullscreen) { // Chrome, Safari and Opera
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) { // IE/Edge
-                    document.documentElement.msRequestFullscreen();
-                }
-            } catch (err) {
-                console.log("Fullscreen request failed:", err);
-            }
+            // Full-screen instruction frame
+            const fullScreenInstructionTrial = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box;">
+                        <h2>Prepare for the Experiment</h2>
+                        <p>Please enter full-screen mode on your browser:</p>
+                        <p>Once you have entered full-screen mode, click Continue to start the experiment.</p>
+                    </div>
+                `,
+                choices: ['Continue'],
+            };
+
 
             // Calibration
             const calibrationTrial = {
@@ -251,6 +250,7 @@
 
             // Timeline
             const timeline = [
+                fullScreenInstructionTrial,
                 calibrationTrial,
                 mirrorTrial,
                 complete
