@@ -205,6 +205,9 @@
                             if (timeLeft > 0) {
                                 timeLeft--;
                                 setTimeout(updateTimer, 1000);
+                            } else {
+                                // Force the trial to end when timer reaches 0
+                                jsPsych.finishTrial();
                             }
                         };
 
@@ -215,7 +218,7 @@
                             stream.getTracks().forEach(track => track.stop());
                             song.pause();
                             timerEl.style.display = 'none';
-                        }, 120000);
+                        }, 119500); // Slightly before trial ends to ensure cleanup happens
                     })
                     .catch(function(err) {
                         console.error("Webcam error:", err);
@@ -225,6 +228,8 @@
                         } else {
                             alert('Error accessing webcam: ' + err.message);
                         }
+                        // End the trial if webcam fails
+                        jsPsych.finishTrial();
                     });
                 },
                 on_finish: function() {
