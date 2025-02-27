@@ -38,45 +38,43 @@ function generateProtocol(child, pastSessions) {
             },
             
             
-            'audio-test': {
-                'kind': 'exp-lookit-instructions',
-                'blocks': [
-                    {
-                        'title': 'Instructions (Your child does not need to be with you yet)',
-                        'listblocks': [
-                            {
-                                'text': "First, we'll make sure that you and your child are all set up."
+            "audio-check": {
+            "kind": "exp-lookit-instructions",
+            "blocks": [{
+                    "title": "Instructions (Your child does not need to be with you yet)"
+                },
+                {
+                    "title": "What's going to happen:",
+                    "listblocks": [{
+                            "text": "First, we'll make sure that you and your child are all set up."
+                        },
+                        {
+                            "text": "Then, we'll play some videos for your child to watch. The videos should take about 5-7 minutes."
+                        },
+                    ]
+                },
+                {
+                    "text": "Please turn the volume up so it's easy to hear but still comfortable.",
+                    "title": "First thing's first: checking your audio.",
+                    "mediaBlock": {
+                        "text": "You should hear 'Ready to go?'",
+                        "isVideo": false,
+                        "sources": [{
+                                "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.mp3",
+                                "type": "audio/mp3"
                             },
                             {
-                                'text': "Then, your child will see and be able to observe themselves on the computer screen. This phase will last 2 minutes."
-                            },
-                            {
-                                'text': "First thing's first: checking your audio. Please turn the volume up so it's easy to hear but still comfortable. You should hear 'Ready to go?"
+                                "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.ogg",
+                                "type": "audio/ogg"
                             }
-                        ]
+                        ],
+                        "mustPlay": true,
+                        "warningText": "Please try playing the sample audio."
                     },
-                    {
-                        "mediaBlock": {
-                            "isVideo": false,
-                            "sources": [
-                                {
-                                    "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.mp3",
-                                    "type": "audio/mp3"
-                                },
-                                {
-                                    "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.ogg",
-                                    "type": "audio/ogg"
-                                }
-                            ],
-                            "mustPlay": true,
-                            "warningText": "Please try playing the sample audio."
-                    }
-                    }
-                ],
-                'doRecording': true,
-                'showWebcam': false,
-                'nextButtonText': 'I can hear the audio',
-            },
+                },
+            ],
+            "nextButtonText": "More instructions!"
+        },
             
             
            'instruction-video': {
@@ -107,51 +105,92 @@ function generateProtocol(child, pastSessions) {
                 'nextButtonText': 'Next'
             },
             
-            'setup-and-final-instructions': {
-                'kind': 'exp-lookit-instructions',
-                'blocks': [
-                    {
-                        'title': "Let's get set up:",
-                        'listblocks': [
-                            {
-                                'text': "If possible, complete the study in a quiet room, away from windows, open doorways, toys, pets, siblings - interesting things to look at and reach for. For example, a home office is better than a busy kitchen (We understand if not all of this is possible!)."
-                            },
-                            {
-                                'text': "Please make sure your webcam is centered on the screen (this should be the case for most laptops)."
-                            },
-                            {
-                                'text': "If you are using two monitors, please turn one of them off."
-                            },
-                            {
-                                'text': "Please put the laptop or computer close to the baby, but far enough so that they can't reach forward and touch anything."
-                            },
-                            {
-                                'text': "Now, you can go ahead and put your child in a high chair and stand or sit behind them. If there is no high chair available, having your child on your lap is also ok."
-                            }
-                        ]
-                    },
-                    {
-                        'title': "Some final pointers",
-                        'listblocks': [
-                            {
-                                'text': "Don't worry if your child isn't looking at the screen the entire time! There's no need to direct your child's attention towards the screen, since we want to see the decisions your child makes on their own! You can just try to keep their body oriented towards the screen so they can look if they want to."
-                            },
-                            {
-                                'text': "Try to avoid peeking over your child's shoulder to see what they're doing. We want to make sure your child isn't distracted away from the screen, when they would've looked otherwise!"
-                            },
-                            {
-                                'text': "If you can do the entire study in one go, that's great. But you can also pause the study (press 'p') or stop the study (press esc-key) at any point"
-                            }
-                        ]
-                    },
-                    {
-                        'text': "Ready? If your child is set up, go ahead and press the 'Check video!' button."
+            "instructions-3": {
+            "kind": "exp-lookit-instructions",
+            "blocks": [{
+                    "title": "Let's get set-up:"
+                },
+                {
+                    "text": "If possible, complete the study in a quiet room, away from windows, open doorways, toys, pets, siblings - interesting things to look at and reach for. For example, a home office is better than a busy kitchen (We understand if not all of this is possible!). \n\n",
+                    "image": {
+                        "alt": "No distractions",
+                        "src": "https://www.mit.edu/~kimscott/intermodal/img/distractions.png"
                     }
-                ],
-                'showWebcam': false,
-                'doRecording': true,
-                'nextButtonText': 'Next'
+                },
+                {
+                    "text": "\n\n Please make sure your webcam is centered on the screen (this should be the case for most laptops). \n\n ",
+                    "image": {
+                        "alt": "Center camera",
+                        "src": "https://www.mit.edu/~kimscott/intermodal/img/centering.png"
+                    }
+                },
+                {
+                    "text": "\n\n If you are using two monitors, please turn one of them off. \n\n ",
+                    "image": {
+                        "alt": "Turn off monitor",
+                        "src": "https://www.mit.edu/~kimscott/intermodal/img/monitors.png"
+                    }
+                },
+                {
+                    "text": "\n\n Please put the laptop or computer close to the baby, but far enough so that they can't reach forward and touch anything. \n\n ",
+                },
+
+                {
+                    "text": "\n\n Now, you can go ahead and put your child in a high chair and stand or sit behind them. \n\n",
+                    "image": {
+                        "alt": "Child in high chair",
+                        "src": "https://raw.githubusercontent.com/GalRaz/mcs_lookit_stims/master/baby_high_chair.jpg",
+                        "width": 50
+                    }
+                },
+                {
+                    "text": "\n\n If there is no high chair available, having your child on your lap is also ok. \n\n",
+                    "image": {
+                        "alt": "Child on lap",
+                        "src": "https://raw.githubusercontent.com/GalRaz/mcs_lookit_stims/master/baby_on_lap.jpg"
+                    }
+                },
+                {
+                    "title": "Some final pointers",
+                    "listblocks": [{
+                            "text": "<b> Don’t worry if your child isn’t looking at the screen the entire time!</b> There's no need to direct your child's attention towards the screen, since we want to see the decisions your child makes on their own! You can just try to keep their body oriented towards the screen so they can look if they want to. "
+                        },
+                        {
+                            "text": "Try to avoid peeking over your child's shoulder to see what they're doing. We want to make sure your child isn't distracted away from the screen, when they would've looked otherwise!"
+                        },
+                        {
+                            "text": "If you can do the entire study in one go, that's great. But you can also pause the study (press 'p') or stop the study (press esc-key) at any point."
+                        },
+                        {
+                            "text": "During the trials with the animated creatures, <b> press the spacebar when your child has looked away for approx. 3 seconds!"
+                        },
+                    ]
+                },
+                {
+                    "title": "Ready?",
+                    "listblocks": [{
+                        "text": "If your child is set up, go ahead and press the 'Check video!' button."
+                    }]
+                }
+            ],
+            "nextButtonText": "Check video!"
             },
+            
+            
+            "webcam-display-check": {
+            "kind": "exp-lookit-webcam-display",
+            "blocks": [{
+                "title": "Last check: Does the video look good? Are your child's eyes visible?",
+                "listblocks": [{
+                    "text": "If so, you can go ahead and start the videos! The experiment will start once you press the button. See you in about 5-7 minutes!"
+                }, ]
+
+            }],
+            "nextButtonText": "Click to continue!",
+            "showPreviousButton": false,
+            "displayFullscreenOverride": true,
+            "startRecordingAutomatically": false
+        },
             
             'mirror-trial': { 
                 'kind': 'exp-lookit-instructions', 
@@ -180,6 +219,8 @@ function generateProtocol(child, pastSessions) {
                 'nextButtonText': 'Next'
             },
             
+            
+            
             'stop-recording': {
                 'kind': 'exp-lookit-stop-recording',
                 'imageAnimation': 'spin',
@@ -187,30 +228,176 @@ function generateProtocol(child, pastSessions) {
                 'showProgressBar': true,
                 'waitForUploadMessage': 'Uploading video... Please wait.',
             },
+            
+            
 
-            'exit-survey': {
-                'kind': 'exp-lookit-exit-survey',
-                'debriefing': {
-                    'title': 'Thank you for participating!',
-                    'blocks': [
-                        {
-                            'text': 'We are studying how babies respond to seeing themselves.'
-                        }
-                    ]
+
+          "mirror-questions": {
+            "kind": "exp-lookit-survey",
+            "showPreviousButton": true,
+            "nextButtonText": "Next",
+            "formSchema": {
+              "schema": {
+                "type": "object",
+                "title": "Child Media and Mirror Experiences",
+                "properties": {
+                  "facetimeFrequency": {
+                    "enum": [
+                      "never",
+                      "less-than-monthly",
+                      "monthly",
+                      "2-3-times-monthly",
+                      "weekly",
+                      "several-times-weekly",
+                      "daily"
+                    ],
+                    "type": "string",
+                    "title": "How often does your child use FaceTime?",
+                    "required": true
+                  },
+                  "mirrorFrequency": {
+                    "enum": [
+                      "never",
+                      "less-than-monthly",
+                      "monthly",
+                      "weekly",
+                      "several-times-weekly",
+                      "daily",
+                      "multiple-times-daily"
+                    ],
+                    "type": "string",
+                    "title": "How often does your child look in the mirror?",
+                    "required": true
+                  },
+                  "mirrorFirstAge": {
+                    "type": "string",
+                    "title": "At approximately what age did your child first look in the mirror? (Please specify in months)",
+                    "required": true
+                  },
+                  "hasSiblings": {
+                    "enum": [
+                      "yes",
+                      "no"
+                    ],
+                    "type": "string",
+                    "title": "Does your child have any siblings?",
+                    "required": true
+                  },
+                  "siblingAges": {
+                    "type": "string",
+                    "title": "If your child has siblings, what are their ages? (Please specify in years, separated by commas if multiple)"
+                  }
+                },
+                "dependencies": {
+                  "siblingAges": ["hasSiblings"]
                 }
+              },
+              "options": {
+                "fields": {
+                  "facetimeFrequency": {
+                    "type": "radio",
+                    "message": "Please select how frequently your child uses FaceTime",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "optionLabels": [
+                      "Never",
+                      "Less than once a month",
+                      "Once a month",
+                      "2-3 times a month",
+                      "Once a week",
+                      "Several times a week",
+                      "Daily"
+                    ]
+                  },
+                  "mirrorFrequency": {
+                    "type": "radio",
+                    "message": "Please select how frequently your child looks in the mirror",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "optionLabels": [
+                      "Never",
+                      "Less than once a month",
+                      "Once a month",
+                      "Once a week",
+                      "Several times a week",
+                      "Daily",
+                      "Multiple times daily"
+                    ]
+                  },
+                  "mirrorFirstAge": {
+                    "type": "text",
+                    "placeholder": "e.g., 3",
+                    "message": "Please provide an age in months"
+                  },
+                  "hasSiblings": {
+                    "type": "radio",
+                    "message": "Please select whether your child has siblings",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "optionLabels": [
+                      "Yes",
+                      "No"
+                    ]
+                  },
+                  "siblingAges": {
+                    "type": "text",
+                    "placeholder": "e.g., 3, 5, 7",
+                    "dependencies": {
+                      "hasSiblings": "yes"
+                    }
+                  }
+                },
+                "hideInitValidationError": true
+              }
             }
+          },
+          
+        
+          "exit-survey": {
+            "kind": "exp-lookit-exit-survey",
+            "debriefing": {
+              "title": "Thank you for participating!",
+              "blocks": [
+                {
+                  "title": "",
+                  "text": "This research wouldn't be possible without awesome parents like you."
+                },
+                {
+                  "title": "Some Background Information:",
+                  "text": " "
+                },
+                {
+                  "title": "Additional Resources:",
+                  "text": "To learn more about this topic, you can check out some of the following works and resources:<br><a href='https://www.youtube.com/watch?v=y1KIVZw7Jxk' target='_blank'>TED Talk by Laura Schulz: The surprisingly logical minds of babies </a><br><a href='https://www.youtube.com/watch?v=muUbUspLgJ8' target='_blank'> Science, problem solving and play - Sara Baker</a>"
+                },
+                {
+                  "title": "Compensation:",
+                  "text": "To thank you for your participation, we'll be emailing you a $5 USD Amazon gift card - this should arrive in your inbox within the next week after we confirm your consent video and check that your child is in the age range for this study (If you don't hear from us by then, feel free to reach out!). If you participate again with another child in the age range, you'll receive one gift card per child."
+                },
+                {
+                  "title": "Questions or Concerns:",
+                  "text": "Please do not hesitate to contact Adani Abutto at aabutto@stanford.edu"
+                }
+              ]
+            }
+          }
+                
+                
+                
         },
         sequence: [
             'welcome',
-            'mirror-trial',
             'video-config',
             'video-consent',
-            'start-recording',
-            'audio-test',
+            'audio-check',
             'instruction-video',
-            'setup-and-final-instructions',
+            'instructions-3',
+            'webcam-display-check',
+            'start-recording',
+            'mirror-trial',
             'study-outro',
             'stop-recording',
+            "mirror-questions",
             'exit-survey'
         ]
     };
