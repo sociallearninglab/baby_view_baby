@@ -253,6 +253,18 @@
                 complete
             ];
 
+            // Check if we should return to Lookit after experiment
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnToLookit = urlParams.get('returnToLookit') === 'true';
+
+            // Add an event listener for when the experiment is complete
+            jsPsych.finishCallback = function() {
+                if (returnToLookit) {
+                    // Attempt to return to Lookit
+                    window.location.href = window.parent.location.href;
+                }
+            };
+
             // Start the experiment
             jsPsych.run(timeline);
         });
