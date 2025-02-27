@@ -107,18 +107,17 @@
                 }
             });
 
-            // Full-screen instruction frame
             const fullScreenInstructionTrial = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box;">
-                        <h2>Prepare for the Experiment</h2>
-                        <p>Please enter full-screen mode on your browser:</p>
-                        <p>Once you have entered full-screen mode, click Continue to start the experiment.</p>
-                    </div>
-                `,
-                choices: ['Continue'],
-            };
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `
+        <div style="text-align: center; padding: 20px;">
+            <h2>Prepare for the Experiment</h2>
+            <p>Please enter full-screen mode.</p>
+            <p>Once you have entered full-screen mode, click Continue.</p>
+        </div>
+    `,
+    choices: ['Continue']
+};
 
 
             // Calibration
