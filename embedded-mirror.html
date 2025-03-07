@@ -3,14 +3,14 @@
 <head>
     <title>Baby Mirror Self-Recognition</title>
 
-    <!-- Add permissions policy -->
+    <!-- permissions policy -->
     <meta http-equiv="Permissions-Policy" content="camera=self">
 
-    <!-- Load jsPsych with full URLs for GitHub Pages -->
+    <!-- Load jsPsych -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
 
-    <!-- Load required plugins -->
+    <!-- Load plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
 
@@ -157,7 +157,7 @@
                 }
             });
 
-            // Function to request and enter fullscreen
+            // request and enter fullscreen
             function enterFullscreen() {
                 if (document.documentElement.requestFullscreen) {
                     document.documentElement.requestFullscreen().catch(err => {
@@ -172,8 +172,7 @@
                 }
             }
             
-            // Note: browsers typically require user interaction before entering fullscreen
-            // We'll focus on the button click instead
+            
 
             const fullScreenInstructionTrial = {
                 type: jsPsychHtmlButtonResponse,
@@ -181,13 +180,13 @@
                     <div style="text-align: center; padding: 20px;">
                         <h2>Final Instructions</h2>
                         <p>Once you are ready to begin, please say out loud "Watermelon".</p>
-                        <p>During the experiment, you can press the 'E' key at any time to exit early. 
+                        <p>During the experiment, you can press the 'E' key to exit early. 
                         You will be asked to confirm your choice before exiting.</p>
                     </div>
                 `,
                 choices: ['Enter Fullscreen & Continue'],
                 on_finish: function() {
-                    // Enter fullscreen when the user clicks the button
+                    // enter fullscreen when the people click the button
                     enterFullscreen();
                 }
             };
@@ -201,12 +200,12 @@
                     </div>
                 `,
                 choices: "NO_KEYS",
-                trial_duration: 10000, // 10 seconds of calibration
+                trial_duration: 10000, // 10 seconds calibration
                 on_load: function() {
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
 
-                    // Move the dot and play sound
+                    // move the dot and play sound
                     const positions = [
                         { left: '50%', top: '50%' },
                         { left: '20%', top: '50%' },
@@ -231,12 +230,12 @@
                         }
                     }
 
-                    // Start the sequence
+                    // start the sequence
                     moveDot();
                 }
             };
 
-            // Mirror trial
+            // mirror trial
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
@@ -244,11 +243,10 @@
                         <video id="webcam" autoplay playsinline></video>
                     </div>
                 `,
-                choices: [], // No predefined key choices, we'll handle Escape manually
-                trial_duration: 180000, // Changed to 3 minutes (180000ms)
-                /* We moved this functionality to on_load with the escape handler */
+                choices: [], // no predefined key choices, (handle Esc manually)
+                trial_duration: 180000, // 3 minutes
                 on_load: function(data) {
-                    // Add manual event listener for E key
+                    // manual event listener for E key
                     const escapeHandler = function(e) {
                         if (e.key === 'e' || e.key === 'E') {
                             e.preventDefault(); // Prevent default behavior
@@ -256,25 +254,25 @@
                         }
                     };
                     
-                    // Add the event listener
+                    // event listener
                     document.addEventListener('keydown', escapeHandler);
                     
-                    // Store it for later removal using a global variable
+                    // store for later removal using a global variable
                     window.mirrorEscapeHandler = escapeHandler;
                     
-                    // Show timer
+                    // timer
                     const timerEl = document.getElementById('timer');
                     timerEl.style.display = 'block';
 
-                    // Play song
+                    // song
                     const song = document.getElementById('song');
                     song.currentTime = 0;
                     song.play().catch(e => console.log("Audio error:", e));
 
-                    // Create a variable to track if we've already ended the trial
+                    // track if we've ended the trial
                     let trialEnded = false;
                     
-                    // Setup exit confirmation dialog
+                    // setup exit confirmation dialog
                     const exitConfirmation = document.getElementById('exit-confirmation');
                     const exitYes = document.getElementById('exit-yes');
                     const exitNo = document.getElementById('exit-no');
@@ -284,14 +282,14 @@
                         if (!trialEnded) {
                             trialEnded = true;
                             
-                            // Clean up resources
+                            
                             if (window.webcamStream) {
                                 window.webcamStream.getTracks().forEach(track => track.stop());
                             }
                             song.pause();
                             timerEl.style.display = 'none';
                             
-                            // Try to close the window
+                            // close the window
                             try {
                                 window.close();
                             } catch (e) {
@@ -310,18 +308,18 @@
                         video: { 
                             width: { ideal: 1920 },
                             height: { ideal: 1080 },
-                            facingMode: 'user' // Prefer front-facing camera
+                            facingMode: 'user' // prefer front-facing camera
                         }
                     })
                     .then(function(stream) {
                         const video = document.getElementById('webcam');
                         video.srcObject = stream;
                         
-                        // Store stream for later cleanup
+                        
                         window.webcamStream = stream;
 
-                        // Set up timer
-                        let timeLeft = 180; // Changed to 3 minutes
+                        // timer
+                        let timeLeft = 180; // 3 min
                         const updateTimer = () => {
                             const minutes = Math.floor(timeLeft / 60);
                             const seconds = timeLeft % 60;
@@ -331,15 +329,15 @@
                                 timeLeft--;
                                 setTimeout(updateTimer, 1000);
                             } else if (!trialEnded) {
-                                // Force the trial to end when timer reaches 0, but only if we haven't already ended it
+                                // force trial to end when timer reaches 0, but only if we haven't already ended it
                                 trialEnded = true;
                                 
-                                // Clean up resources
+                               
                                 stream.getTracks().forEach(track => track.stop());
                                 song.pause();
                                 timerEl.style.display = 'none';
                                 
-                                // End the trial
+                                // end trial
                                 jsPsych.finishTrial();
                             }
                         };
@@ -361,12 +359,12 @@
                     });
                 },
                 on_finish: function() {
-                    // Remove the escape handler when trial finishes
+                    
                     if (window.mirrorEscapeHandler) {
                         document.removeEventListener('keydown', window.mirrorEscapeHandler);
                     }
                     
-                    // Make sure everything is stopped
+                    
                     const song = document.getElementById('song');
                     song.pause();
                     document.getElementById('timer').style.display = 'none';
@@ -377,7 +375,7 @@
                 }
             };
 
-            // Complete message - no time limit
+            // final screen
             const complete = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
@@ -389,7 +387,7 @@
                 choices: ['Close Window'],
                 button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
                 on_finish: function() {
-                    // Attempt to close the window when the button is clicked
+                    
                     window.close();
                 }
             };
