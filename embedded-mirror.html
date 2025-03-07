@@ -89,11 +89,61 @@
             font-size: 18px;
             z-index: 101;
         }
+        
+        #exit-confirmation {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 1000;
+            display: none;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #exit-confirmation h3 {
+            margin-top: 0;
+        }
+
+        #exit-confirmation .button-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        #exit-confirmation button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+
+        #exit-yes {
+            background-color: #f44336;
+            color: white;
+        }
+
+        #exit-no {
+            background-color: #4CAF50;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div id="jspsych-target"></div>
     <div id="timer">00:00</div>
+    <div id="exit-confirmation">
+        <h3>Are you sure you want to exit?</h3>
+        <div class="button-container">
+            <button id="exit-yes">Yes</button>
+            <button id="exit-no">No</button>
+        </div>
+    </div>
     <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
     <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
 
@@ -107,18 +157,40 @@
                 }
             });
 
-            const fullScreenInstructionTrial = {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: `
-        <div style="text-align: center; padding: 20px;">
-            <h2>Prepare for the Experiment</h2>
-            <p>Please enter full-screen mode.</p>
-            <p>Once you have entered full-screen mode, please say "Watermelon" out loud and click Continue.</p>
-        </div>
-    `,
-    choices: ['Continue']
-};
+            // Function to request and enter fullscreen
+            function enterFullscreen() {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.warn("Couldn't enter fullscreen:", err);
+                    });
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            }
+            
+            // Note: browsers typically require user interaction before entering fullscreen
+            // We'll focus on the button click instead
 
+            const fullScreenInstructionTrial = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="text-align: center; padding: 20px;">
+                        <h2>Final Instructions</h2>
+                        <p>Once you are ready to begin, please say out loud "Watermelon".</p>
+                        <p>During the experiment, you can press the 'E' key at any time to exit early. 
+                        You will be asked to confirm your choice before exiting.</p>
+                    </div>
+                `,
+                choices: ['Enter Fullscreen & Continue'],
+                on_finish: function() {
+                    // Enter fullscreen when the user clicks the button
+                    enterFullscreen();
+                }
+            };
 
             // Calibration
             const calibrationTrial = {
@@ -172,9 +244,24 @@
                         <video id="webcam" autoplay playsinline></video>
                     </div>
                 `,
-                choices: "NO_KEYS",
-                trial_duration: 120000, // 2 minutes
-                on_load: function() {
+                choices: [], // No predefined key choices, we'll handle Escape manually
+                trial_duration: 180000, // Changed to 3 minutes (180000ms)
+                /* We moved this functionality to on_load with the escape handler */
+                on_load: function(data) {
+                    // Add manual event listener for E key
+                    const escapeHandler = function(e) {
+                        if (e.key === 'e' || e.key === 'E') {
+                            e.preventDefault(); // Prevent default behavior
+                            document.getElementById('exit-confirmation').style.display = 'block';
+                        }
+                    };
+                    
+                    // Add the event listener
+                    document.addEventListener('keydown', escapeHandler);
+                    
+                    // Store it for later removal using a global variable
+                    window.mirrorEscapeHandler = escapeHandler;
+                    
                     // Show timer
                     const timerEl = document.getElementById('timer');
                     timerEl.style.display = 'block';
@@ -186,6 +273,38 @@
 
                     // Create a variable to track if we've already ended the trial
                     let trialEnded = false;
+                    
+                    // Setup exit confirmation dialog
+                    const exitConfirmation = document.getElementById('exit-confirmation');
+                    const exitYes = document.getElementById('exit-yes');
+                    const exitNo = document.getElementById('exit-no');
+                    
+                    exitYes.addEventListener('click', function() {
+                        exitConfirmation.style.display = 'none';
+                        if (!trialEnded) {
+                            trialEnded = true;
+                            
+                            // Clean up resources
+                            if (window.webcamStream) {
+                                window.webcamStream.getTracks().forEach(track => track.stop());
+                            }
+                            song.pause();
+                            timerEl.style.display = 'none';
+                            
+                            // Try to close the window
+                            try {
+                                window.close();
+                            } catch (e) {
+                                console.log("Couldn't close window:", e);
+                                // End the trial and go to final screen
+                                jsPsych.finishTrial();
+                            }
+                        }
+                    });
+                    
+                    exitNo.addEventListener('click', function() {
+                        exitConfirmation.style.display = 'none';
+                    });
 
                     navigator.mediaDevices.getUserMedia({ 
                         video: { 
@@ -197,9 +316,12 @@
                     .then(function(stream) {
                         const video = document.getElementById('webcam');
                         video.srcObject = stream;
+                        
+                        // Store stream for later cleanup
+                        window.webcamStream = stream;
 
                         // Set up timer
-                        let timeLeft = 120; // 2 minutes
+                        let timeLeft = 180; // Changed to 3 minutes
                         const updateTimer = () => {
                             const minutes = Math.floor(timeLeft / 60);
                             const seconds = timeLeft % 60;
@@ -239,10 +361,19 @@
                     });
                 },
                 on_finish: function() {
+                    // Remove the escape handler when trial finishes
+                    if (window.mirrorEscapeHandler) {
+                        document.removeEventListener('keydown', window.mirrorEscapeHandler);
+                    }
+                    
                     // Make sure everything is stopped
                     const song = document.getElementById('song');
                     song.pause();
                     document.getElementById('timer').style.display = 'none';
+                    
+                    if (window.webcamStream) {
+                        window.webcamStream.getTracks().forEach(track => track.stop());
+                    }
                 }
             };
 
