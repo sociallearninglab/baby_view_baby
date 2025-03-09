@@ -1,1 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>delayed mirror</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        #video-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #webcam {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        
+        #delayed-canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+        
+        #timer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: rgba(255, 255, 255, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="delayed-canvas"></canvas>
+    </div>
+    
+    <div id="timer">00:00</div>
+    
+    <div id="controls">
+        <button id="start-btn">Start</button>
+        <button id="stop-btn">Stop</button>
+        <label for="delay-slider">Delay (seconds): </label>
+        <input type="range" id="delay-slider" min="0.5" max="5" step="0.5" value="2">
+        <span id="delay-value">2.0s</span>
+    </div>
 
+    <script>
+        
+        const webcam = document.getElementById('webcam');
+        const delayedCanvas = document.getElementById('delayed-canvas');
+        const ctx = delayedCanvas.getContext('2d');
+        const timerEl = document.getElementById('timer');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const delaySlider = document.getElementById('delay-slider');
+        const delayValue = document.getElementById('delay-value');
+        
+        
+        let stream;
+        let videoFrameBuffer = [];
+        let frameInterval;
+        let timerInterval;
+        let startTime;
+        let isRunning = false;
+        
+       
+        let DELAY_MS = 2000; 
+        const FPS = 30;
+        let FRAME_INTERVAL_MS = 1000 / FPS;
+        let BUFFER_SIZE = Math.ceil(DELAY_MS / FRAME_INTERVAL_MS);
+        
+        
+        delaySlider.addEventListener('input', function() {
+            DELAY_MS = parseFloat(this.value) * 1000;
+            BUFFER_SIZE = Math.ceil(DELAY_MS / FRAME_INTERVAL_MS);
+            delayValue.textContent = `${this.value}s`;
+            
+            
+            if (isRunning) {
+                videoFrameBuffer = [];
+            }
+        });
+        
+        
+        startBtn.addEventListener('click', startDelayedMirror);
+        stopBtn.addEventListener('click', stopDelayedMirror);
+        
+       
+        function setupCanvas() {
+            delayedCanvas.width = window.innerWidth;
+            delayedCanvas.height = window.innerHeight;
+        }
+        
+       
+        function captureVideoFrame() {
+            if (webcam.readyState === webcam.HAVE_ENOUGH_DATA) {
+                
+                const frameCanvas = document.createElement('canvas');
+                frameCanvas.width = delayedCanvas.width;
+                frameCanvas.height = delayedCanvas.height;
+                const frameCtx = frameCanvas.getContext('2d');
+                
+                
+                frameCtx.drawImage(webcam, 0, 0, frameCanvas.width, frameCanvas.height);
+                
+                
+                videoFrameBuffer.push({
+                    timestamp: Date.now(),
+                    canvas: frameCanvas
+                });
+                
+                
+                if (videoFrameBuffer.length > BUFFER_SIZE) {
+                    
+                    const oldestFrame = videoFrameBuffer.shift();
+                    
+                    ctx.clearRect(0, 0, delayedCanvas.width, delayedCanvas.height);
+                    
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(oldestFrame.canvas, -delayedCanvas.width, 0, delayedCanvas.width, delayedCanvas.height);
+                    ctx.restore();
+                }
+            }
+            
+            
+            if (isRunning) {
+                requestAnimationFrame(captureVideoFrame);
+            }
+        }
+        
+        
+        function updateTimer() {
+            if (!isRunning) return;
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        
+        function startDelayedMirror() {
+            if (isRunning) return;
+            
+            setupCanvas();
+            
+            
+            navigator.mediaDevices.getUserMedia({
+                video: { 
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            })
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                webcam.srcObject = stream;
+                
+                
+                webcam.onloadedmetadata = function() {
+                    isRunning = true;
+                    startTime = Date.now();
+                    
+                    
+                    requestAnimationFrame(captureVideoFrame);
+                    
+                    
+                    timerInterval = setInterval(updateTimer, 1000);
+                };
+            })
+            .catch(function(err) {
+                console.error("Error accessing webcam:", err);
+                alert('Error accessing webcam. Please make sure you have granted camera permissions.');
+            });
+        }
+        
+        
+        function stopDelayedMirror() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            
+            
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            
+            clearInterval(timerInterval);
+            
+            
+            ctx.clearRect(0, 0, delayedCanvas.width, delayedCanvas.height);
+            
+            
+            videoFrameBuffer = [];
+        }
+        
+        
+        window.addEventListener('resize', function() {
+            if (isRunning) {
+                setupCanvas();
+            }
+        });
+        
+        
+        setupCanvas();
+    </script>
+</body>
+</html>
