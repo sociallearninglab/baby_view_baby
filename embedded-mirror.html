@@ -182,8 +182,29 @@
                 `,
                 choices: ['Enter Fullscreen & Continue'],
                 on_finish: function() {
-                    // enter fullscreen when the people click the button
+                    // Enter fullscreen when the people click the button
                     enterFullscreen();
+                    
+                    // Also request camera permission here
+                    navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            facingMode: 'user'
+                        }
+                    })
+                    .then(function(stream) {
+                        // Store the stream for later use
+                        window.webcamStream = stream;
+                    })
+                    .catch(function(err) {
+                        console.error("Webcam error:", err);
+                        if (err.name === 'NotAllowedError') {
+                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                        } else {
+                            alert('Error accessing webcam: ' + err.message);
+                        }
+                    });
                 }
             };
 
@@ -228,6 +249,9 @@
                 stimulus: `
                     <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                        <div id="waiting-for-camera" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none;">
+                            <p>Waiting for camera permission...</p>
+                        </div>
                     </div>
                 `,
                 choices: "NO_KEYS",
@@ -235,34 +259,58 @@
                 on_load: function() {
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
-
-                    // move the dot and play sound
-                    const positions = [
-                        { left: '50%', top: '50%' },
-                        { left: '20%', top: '50%' },
-                        { left: '80%', top: '50%' },
-                        { left: '50%', top: '20%' },
-                        { left: '50%', top: '80%' }
-                    ];
-
-                    let currentPos = 0;
-
-                    function moveDot() {
-                        if (currentPos < positions.length) {
-                            point.style.left = positions[currentPos].left;
-                            point.style.top = positions[currentPos].top;
-
-                            // Play sound
-                            chime.currentTime = 0;
-                            chime.play().catch(e => console.log("Audio error:", e));
-
-                            currentPos++;
-                            setTimeout(moveDot, 2000);
-                        }
+                    const waitingMsg = document.getElementById('waiting-for-camera');
+                    
+                    // Check if camera permission is already granted
+                    if (!window.webcamStream) {
+                        // Show waiting message
+                        point.style.display = 'none';
+                        waitingMsg.style.display = 'block';
+                        
+                        // Wait for camera permission
+                        const checkCameraInterval = setInterval(() => {
+                            if (window.webcamStream) {
+                                // Camera permission granted, start calibration
+                                clearInterval(checkCameraInterval);
+                                point.style.display = 'block';
+                                waitingMsg.style.display = 'none';
+                                startCalibration();
+                            }
+                        }, 100);
+                    } else {
+                        // Camera permission already granted, start calibration
+                        startCalibration();
                     }
+                    
+                    function startCalibration() {
+                        // move the dot and play sound
+                        const positions = [
+                            { left: '50%', top: '50%' },
+                            { left: '20%', top: '50%' },
+                            { left: '80%', top: '50%' },
+                            { left: '50%', top: '20%' },
+                            { left: '50%', top: '80%' }
+                        ];
 
-                    // start the sequence
-                    moveDot();
+                        let currentPos = 0;
+
+                        function moveDot() {
+                            if (currentPos < positions.length) {
+                                point.style.left = positions[currentPos].left;
+                                point.style.top = positions[currentPos].top;
+
+                                // Play sound
+                                chime.currentTime = 0;
+                                chime.play().catch(e => console.log("Audio error:", e));
+
+                                currentPos++;
+                                setTimeout(moveDot, 2000);
+                            }
+                        }
+
+                        // start the sequence
+                        moveDot();
+                    }
                 }
             };
 
@@ -452,7 +500,6 @@
             // Timeline
             const timeline = [
                 fullScreenInstructionTrial,
-                cameraPermissionTrial, 
                 calibrationTrial,
                 mirrorTrial,
                 complete
