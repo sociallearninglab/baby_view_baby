@@ -171,106 +171,20 @@
                     document.documentElement.msRequestFullscreen();
                 }
             }
-
-
-            const cameraLoadingTrial = {
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `
-        <div style="text-align: center; padding: 20px;">
-            <h2>Please allow camera access when prompted</h2>
-            <p>Waiting for camera permission...</p>
-            <div style="margin-top: 20px;">
-                <div class="spinner" style="display: inline-block; width: 40px; height: 40px; border: 4px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #4CAF50; animation: spin 1s linear infinite;"></div>
-            </div>
-        </div>
-        <style>
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        </style>
-    `,
-    choices: [],
-    trial_duration: null, // No time limit - will end when permission granted
-    on_load: function() {
-        // Request camera permission immediately
-        navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                facingMode: 'user'
-            }
-        })
-        .then(function(stream) {
-            // Store the stream for later use
-            window.webcamStream = stream;
             
-            // End the trial immediately once permission is granted
-            jsPsych.finishTrial();
-        })
-        .catch(function(err) {
-            console.error("Webcam error:", err);
-            if (err.name === 'NotAllowedError') {
-                alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-            } else {
-                alert('Error accessing webcam: ' + err.message);
-            }
             
-            // End the trial even if there's an error
-            jsPsych.finishTrial();
-        });
-    }
-};
 
-
-            
-            // Initial instructions with image
             const fullScreenInstructionTrial = {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: `
-        <div style="padding: 20px;">
-            <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
-        </div>
-    `,
-    choices: ['Enter Fullscreen & Continue'],
-    on_finish: function() {
-        // Enter fullscreen when the people click the button
-        enterFullscreen();
-    }
-};
-
-            // Camera permission request before calibration
-            const cameraPermissionTrial = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <div style="text-align: center; padding: 20px;">
-                        <h2>Camera Permission</h2>
-                        <p>Please click the button below to allow camera access.</p>
-                        <p>You'll need to grant permission in the popup that appears.</p>
+                    <div style="padding: 20px;">
+                        <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
                     </div>
                 `,
-                choices: ['Allow Camera Access'],
+                choices: ['Enter Fullscreen & Continue'],
                 on_finish: function() {
-                    // Request camera access when button is clicked
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            facingMode: 'user'
-                        }
-                    })
-                    .then(function(stream) {
-                        // Store the stream for later use
-                        window.webcamStream = stream;
-                    })
-                    .catch(function(err) {
-                        console.error("Webcam error:", err);
-                        if (err.name === 'NotAllowedError') {
-                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                        } else {
-                            alert('Error accessing webcam: ' + err.message);
-                        }
-                    });
+                    // enter fullscreen when the people click the button
+                    enterFullscreen();
                 }
             };
 
@@ -280,9 +194,6 @@
                 stimulus: `
                     <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
-                        <div id="waiting-for-camera" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none;">
-                            <p>Waiting for camera permission...</p>
-                        </div>
                     </div>
                 `,
                 choices: "NO_KEYS",
@@ -290,58 +201,34 @@
                 on_load: function() {
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
-                    const waitingMsg = document.getElementById('waiting-for-camera');
-                    
-                    // Check if camera permission is already granted
-                    if (!window.webcamStream) {
-                        // Show waiting message
-                        point.style.display = 'none';
-                        waitingMsg.style.display = 'block';
-                        
-                        // Wait for camera permission
-                        const checkCameraInterval = setInterval(() => {
-                            if (window.webcamStream) {
-                                // Camera permission granted, start calibration
-                                clearInterval(checkCameraInterval);
-                                point.style.display = 'block';
-                                waitingMsg.style.display = 'none';
-                                startCalibration();
-                            }
-                        }, 100);
-                    } else {
-                        // Camera permission already granted, start calibration
-                        startCalibration();
-                    }
-                    
-                    function startCalibration() {
-                        // move the dot and play sound
-                        const positions = [
-                            { left: '50%', top: '50%' },
-                            { left: '20%', top: '50%' },
-                            { left: '80%', top: '50%' },
-                            { left: '50%', top: '20%' },
-                            { left: '50%', top: '80%' }
-                        ];
 
-                        let currentPos = 0;
+                    // move the dot and play sound
+                    const positions = [
+                        { left: '50%', top: '50%' },
+                        { left: '20%', top: '50%' },
+                        { left: '80%', top: '50%' },
+                        { left: '50%', top: '20%' },
+                        { left: '50%', top: '80%' }
+                    ];
 
-                        function moveDot() {
-                            if (currentPos < positions.length) {
-                                point.style.left = positions[currentPos].left;
-                                point.style.top = positions[currentPos].top;
+                    let currentPos = 0;
 
-                                // Play sound
-                                chime.currentTime = 0;
-                                chime.play().catch(e => console.log("Audio error:", e));
+                    function moveDot() {
+                        if (currentPos < positions.length) {
+                            point.style.left = positions[currentPos].left;
+                            point.style.top = positions[currentPos].top;
 
-                                currentPos++;
-                                setTimeout(moveDot, 2000);
-                            }
+                            // Play sound
+                            chime.currentTime = 0;
+                            chime.play().catch(e => console.log("Audio error:", e));
+
+                            currentPos++;
+                            setTimeout(moveDot, 2000);
                         }
-
-                        // start the sequence
-                        moveDot();
                     }
+
+                    // start the sequence
+                    moveDot();
                 }
             };
 
@@ -392,6 +279,7 @@
                         if (!trialEnded) {
                             trialEnded = true;
                             
+                            
                             if (window.webcamStream) {
                                 window.webcamStream.getTracks().forEach(track => track.stop());
                             }
@@ -413,11 +301,20 @@
                         exitConfirmation.style.display = 'none';
                     });
 
-                    // Check if we already have camera access from earlier
-                    if (window.webcamStream) {
+                    navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            facingMode: 'user' // prefer front-facing camera
+                        }
+                    })
+                    .then(function(stream) {
                         const video = document.getElementById('webcam');
-                        video.srcObject = window.webcamStream;
+                        video.srcObject = stream;
                         
+                        
+                        window.webcamStream = stream;
+
                         // timer
                         let timeLeft = 180; // 3 min
                         const updateTimer = () => {
@@ -432,7 +329,8 @@
                                 // force trial to end when timer reaches 0, but only if we haven't already ended it
                                 trialEnded = true;
                                 
-                                window.webcamStream.getTracks().forEach(track => track.stop());
+                               
+                                stream.getTracks().forEach(track => track.stop());
                                 song.pause();
                                 timerEl.style.display = 'none';
                                 
@@ -442,65 +340,27 @@
                         };
 
                         updateTimer();
-                    } else {
-                        // Fallback if we don't have a stream yet
-                        navigator.mediaDevices.getUserMedia({ 
-                            video: { 
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 },
-                                facingMode: 'user' // prefer front-facing camera
-                            }
-                        })
-                        .then(function(stream) {
-                            const video = document.getElementById('webcam');
-                            video.srcObject = stream;
-                            
-                            window.webcamStream = stream;
-
-                            // timer
-                            let timeLeft = 180; // 3 min
-                            const updateTimer = () => {
-                                const minutes = Math.floor(timeLeft / 60);
-                                const seconds = timeLeft % 60;
-                                timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                                if (timeLeft > 0) {
-                                    timeLeft--;
-                                    setTimeout(updateTimer, 1000);
-                                } else if (!trialEnded) {
-                                    // force trial to end when timer reaches 0, but only if we haven't already ended it
-                                    trialEnded = true;
-                                    
-                                    stream.getTracks().forEach(track => track.stop());
-                                    song.pause();
-                                    timerEl.style.display = 'none';
-                                    
-                                    // end trial
-                                    jsPsych.finishTrial();
-                                }
-                            };
-
-                            updateTimer();
-                        })
-                        .catch(function(err) {
-                            console.error("Webcam error:", err);
-                            if (err.name === 'NotAllowedError') {
-                                alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                            } else {
-                                alert('Error accessing webcam: ' + err.message);
-                            }
-                            // End the trial if webcam fails
-                            if (!trialEnded) {
-                                trialEnded = true;
-                                jsPsych.finishTrial();
-                            }
-                        });
-                    }
+                    })
+                    .catch(function(err) {
+                        console.error("Webcam error:", err);
+                        if (err.name === 'NotAllowedError') {
+                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                        } else {
+                            alert('Error accessing webcam: ' + err.message);
+                        }
+                        // End the trial if webcam fails
+                        if (!trialEnded) {
+                            trialEnded = true;
+                            jsPsych.finishTrial();
+                        }
+                    });
                 },
                 on_finish: function() {
+                    
                     if (window.mirrorEscapeHandler) {
                         document.removeEventListener('keydown', window.mirrorEscapeHandler);
                     }
+                    
                     
                     const song = document.getElementById('song');
                     song.pause();
@@ -524,15 +384,15 @@
                 choices: ['Close Window'],
                 button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
                 on_finish: function() {
+                    
                     window.close();
                 }
             };
 
             // Timeline
             const timeline = [
-                fullScreenInstructionTrial,,
-                cameraLoadingTrial,  // This trial requests camera permission and waits
-                calibrationTrial, 
+                fullScreenInstructionTrial,
+                calibrationTrial,
                 mirrorTrial,
                 complete
             ];
