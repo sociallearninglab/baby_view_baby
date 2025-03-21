@@ -132,51 +132,6 @@
             background-color: #4CAF50;
             color: white;
         }
-        
-        #camera-permission-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        #camera-status {
-            margin: 15px 0;
-            font-weight: bold;
-        }
-        
-        .status-waiting {
-            color: #FFA500;
-        }
-        
-        .status-granted {
-            color: #4CAF50;
-        }
-        
-        .status-denied {
-            color: #f44336;
-        }
-        
-        #preview-container {
-            width: 320px;
-            height: 240px;
-            border: 1px solid #ccc;
-            margin: 10px auto;
-            background-color: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        
-        #preview-webcam {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
     </style>
 </head>
 <body>
@@ -217,97 +172,47 @@
                 }
             }
             
-            // Initial instructions trial
-            const instructionsTrial = {
+            // Pre-request camera permission
+            function requestCameraAccess() {
+                return navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user' // prefer front-facing camera
+                    }
+                })
+                .then(function(stream) {
+                    // Store for later use
+                    window.webcamStream = stream;
+                    return true;
+                })
+                .catch(function(err) {
+                    console.error("Webcam error:", err);
+                    if (err.name === 'NotAllowedError') {
+                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                    } else {
+                        alert('Error accessing webcam: ' + err.message);
+                    }
+                    return false;
+                });
+            }
+
+            const fullScreenInstructionTrial = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
                     <div style="padding: 20px;">
-                        <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%>
-                        <p style="margin-top: 20px; font-size: 18px;">The next screen will ask for permission to use your camera.</p>
+                        <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
                     </div>
                 `,
                 choices: ['Continue'],
-                on_finish: function() {
-                    // do nothing here, just proceed to camera permission trial
-                }
-            };
-            
-            // Camera permission trial
-            const cameraPermissionTrial = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: function() {
-                    return `
-                        <div id="camera-permission-container">
-                            <h2>Camera Access Required</h2>
-                            <p>This experiment requires access to your camera to display a mirror-like image.</p>
-                            <div id="camera-status" class="status-waiting">Waiting for camera permission...</div>
-                            <div id="preview-container">
-                                <video id="preview-webcam" autoplay playsinline></video>
-                            </div>
-                            <p>Please click "Allow" when your browser asks for camera permission.</p>
-                            <p>Once permission is granted, you'll see a preview above.</p>
-                        </div>
-                    `;
-                },
-                choices: ['Continue to Fullscreen'],
-                button_html: '<button class="jspsych-btn" style="display: none;">%choice%</button>',
                 on_load: function() {
-                    const statusElement = document.getElementById('camera-status');
-                    const continueButton = document.querySelector('.jspsych-btn');
-                    const previewVideo = document.getElementById('preview-webcam');
-                    
-                    // Request camera permission
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: 'user' // prefer front-facing camera
-                        }
-                    })
-                    .then(function(stream) {
-                        // Camera permission granted
-                        statusElement.textContent = "Camera permission granted!";
-                        statusElement.className = "status-granted";
-                        
-                        // Show preview
-                        previewVideo.srcObject = stream;
-                        
-                        // Store stream for later use
-                        window.webcamStream = stream;
-                        
-                        // Show continue button
-                        continueButton.style.display = 'inline-block';
-                    })
-                    .catch(function(err) {
-                        console.error("Webcam error:", err);
-                        statusElement.textContent = "Camera permission denied. Please reload the page and try again.";
-                        statusElement.className = "status-denied";
-                        
-                        if (err.name === 'NotAllowedError') {
-                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                        } else {
-                            alert('Error accessing webcam: ' + err.message);
-                        }
+                    // Request camera permission while showing instructions
+                    requestCameraAccess().then(function(success) {
+                        console.log("Camera permission obtained:", success);
                     });
                 },
                 on_finish: function() {
-                    // When they click continue, we'll enter fullscreen in the next step
-                }
-            };
-            
-            // Fullscreen entry trial
-            const fullScreenEntryTrial = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div style="padding: 20px; text-align: center;">
-                        <h2>Ready to Start</h2>
-                        <p>The experiment will now enter fullscreen mode.</p>
-                        <p>Please avoid exiting fullscreen during the experiment.</p>
-                    </div>
-                `,
-                choices: ['Enter Fullscreen & Begin'],
-                on_finish: function() {
-                    // Enter fullscreen when they click the button
+                    // Enter fullscreen when button is clicked, after already having requested camera
                     enterFullscreen();
                 }
             };
@@ -356,7 +261,7 @@
                 }
             };
 
-            // mirror trial - now reuses the already granted webcam stream
+            // mirror trial - now tries to use the already obtained webcam stream
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
@@ -424,12 +329,43 @@
                         exitConfirmation.style.display = 'none';
                     });
 
-                    // Use the existing webcam stream if available
-                    if (window.webcamStream) {
+                    // Try to use existing webcam stream if available
+                    if (window.webcamStream && window.webcamStream.active) {
                         const video = document.getElementById('webcam');
                         video.srcObject = window.webcamStream;
-                        
-                        // timer
+                        startTimer();
+                    } else {
+                        // If webcam stream not available yet, request it again
+                        navigator.mediaDevices.getUserMedia({ 
+                            video: { 
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 },
+                                facingMode: 'user'
+                            }
+                        })
+                        .then(function(stream) {
+                            const video = document.getElementById('webcam');
+                            video.srcObject = stream;
+                            window.webcamStream = stream;
+                            startTimer();
+                        })
+                        .catch(function(err) {
+                            console.error("Webcam error:", err);
+                            if (err.name === 'NotAllowedError') {
+                                alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                            } else {
+                                alert('Error accessing webcam: ' + err.message);
+                            }
+                            // End the trial if webcam fails
+                            if (!trialEnded) {
+                                trialEnded = true;
+                                jsPsych.finishTrial();
+                            }
+                        });
+                    }
+
+                    // Start timer function (extracted to avoid duplicate code)
+                    function startTimer() {
                         let timeLeft = 180; // 3 min
                         const updateTimer = () => {
                             const minutes = Math.floor(timeLeft / 60);
@@ -442,8 +378,9 @@
                             } else if (!trialEnded) {
                                 // force trial to end when timer reaches 0, but only if we haven't already ended it
                                 trialEnded = true;
-                                
-                                window.webcamStream.getTracks().forEach(track => track.stop());
+                                if (window.webcamStream) {
+                                    window.webcamStream.getTracks().forEach(track => track.stop());
+                                }
                                 song.pause();
                                 timerEl.style.display = 'none';
                                 
@@ -453,15 +390,6 @@
                         };
 
                         updateTimer();
-                    } else {
-                        // Fallback in case the stream is not available for some reason
-                        console.error("Webcam stream not available");
-                        alert('Error: Camera stream not available. Please reload the page and try again.');
-                        
-                        if (!trialEnded) {
-                            trialEnded = true;
-                            jsPsych.finishTrial();
-                        }
                     }
                 },
                 on_finish: function() {
@@ -495,11 +423,9 @@
                 }
             };
 
-            // Timeline - modified to include new flow
+            // Timeline
             const timeline = [
-                instructionsTrial,
-                cameraPermissionTrial,
-                fullScreenEntryTrial,
+                fullScreenInstructionTrial,
                 calibrationTrial,
                 mirrorTrial,
                 complete
