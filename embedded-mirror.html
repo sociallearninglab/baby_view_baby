@@ -206,13 +206,14 @@
                 `,
                 choices: ['Continue'],
                 on_load: function() {
-                    // Request camera permission while showing instructions
-                    requestCameraAccess().then(function(success) {
-                        console.log("Camera permission obtained:", success);
-                    });
+                    // Delay camera permission request by 5 seconds
+                    setTimeout(function() {
+                        requestCameraAccess().then(function(success) {
+                            console.log("Camera permission obtained:", success);
+                        });
+                    }, 5000);
                 },
                 on_finish: function() {
-                    // Enter fullscreen when button is clicked, after already having requested camera
                     enterFullscreen();
                 }
             };
