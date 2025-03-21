@@ -172,30 +172,7 @@
                 }
             }
             
-            // Pre-request camera permission
-            function requestCameraAccess() {
-                return navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                        facingMode: 'user' // prefer front-facing camera
-                    }
-                })
-                .then(function(stream) {
-                    // Store for later use
-                    window.webcamStream = stream;
-                    return true;
-                })
-                .catch(function(err) {
-                    console.error("Webcam error:", err);
-                    if (err.name === 'NotAllowedError') {
-                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                    } else {
-                        alert('Error accessing webcam: ' + err.message);
-                    }
-                    return false;
-                });
-            }
+            
 
             const fullScreenInstructionTrial = {
                 type: jsPsychHtmlButtonResponse,
@@ -204,15 +181,9 @@
                         <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
                     </div>
                 `,
-                choices: ['Continue'],
-                on_load: function() {
-                    // Request camera permission while showing instructions
-                    requestCameraAccess().then(function(success) {
-                        console.log("Camera permission obtained:", success);
-                    });
-                },
+                choices: ['Enter Fullscreen & Continue'],
                 on_finish: function() {
-                    // Enter fullscreen when button is clicked, after already having requested camera
+                    // enter fullscreen when the people click the button
                     enterFullscreen();
                 }
             };
@@ -261,7 +232,7 @@
                 }
             };
 
-            // mirror trial - now tries to use the already obtained webcam stream
+            // mirror trial
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
@@ -308,6 +279,7 @@
                         if (!trialEnded) {
                             trialEnded = true;
                             
+                            
                             if (window.webcamStream) {
                                 window.webcamStream.getTracks().forEach(track => track.stop());
                             }
@@ -329,43 +301,21 @@
                         exitConfirmation.style.display = 'none';
                     });
 
-                    // Try to use existing webcam stream if available
-                    if (window.webcamStream && window.webcamStream.active) {
+                    navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            facingMode: 'user' // prefer front-facing camera
+                        }
+                    })
+                    .then(function(stream) {
                         const video = document.getElementById('webcam');
-                        video.srcObject = window.webcamStream;
-                        startTimer();
-                    } else {
-                        // If webcam stream not available yet, request it again
-                        navigator.mediaDevices.getUserMedia({ 
-                            video: { 
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 },
-                                facingMode: 'user'
-                            }
-                        })
-                        .then(function(stream) {
-                            const video = document.getElementById('webcam');
-                            video.srcObject = stream;
-                            window.webcamStream = stream;
-                            startTimer();
-                        })
-                        .catch(function(err) {
-                            console.error("Webcam error:", err);
-                            if (err.name === 'NotAllowedError') {
-                                alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                            } else {
-                                alert('Error accessing webcam: ' + err.message);
-                            }
-                            // End the trial if webcam fails
-                            if (!trialEnded) {
-                                trialEnded = true;
-                                jsPsych.finishTrial();
-                            }
-                        });
-                    }
+                        video.srcObject = stream;
+                        
+                        
+                        window.webcamStream = stream;
 
-                    // Start timer function (extracted to avoid duplicate code)
-                    function startTimer() {
+                        // timer
                         let timeLeft = 180; // 3 min
                         const updateTimer = () => {
                             const minutes = Math.floor(timeLeft / 60);
@@ -378,9 +328,9 @@
                             } else if (!trialEnded) {
                                 // force trial to end when timer reaches 0, but only if we haven't already ended it
                                 trialEnded = true;
-                                if (window.webcamStream) {
-                                    window.webcamStream.getTracks().forEach(track => track.stop());
-                                }
+                                
+                               
+                                stream.getTracks().forEach(track => track.stop());
                                 song.pause();
                                 timerEl.style.display = 'none';
                                 
@@ -390,12 +340,27 @@
                         };
 
                         updateTimer();
-                    }
+                    })
+                    .catch(function(err) {
+                        console.error("Webcam error:", err);
+                        if (err.name === 'NotAllowedError') {
+                            alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                        } else {
+                            alert('Error accessing webcam: ' + err.message);
+                        }
+                        // End the trial if webcam fails
+                        if (!trialEnded) {
+                            trialEnded = true;
+                            jsPsych.finishTrial();
+                        }
+                    });
                 },
                 on_finish: function() {
+                    
                     if (window.mirrorEscapeHandler) {
                         document.removeEventListener('keydown', window.mirrorEscapeHandler);
                     }
+                    
                     
                     const song = document.getElementById('song');
                     song.pause();
@@ -419,6 +384,7 @@
                 choices: ['Close Window'],
                 button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
                 on_finish: function() {
+                    
                     window.close();
                 }
             };
