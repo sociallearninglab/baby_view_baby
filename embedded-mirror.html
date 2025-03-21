@@ -145,7 +145,7 @@
         </div>
     </div>
     <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
-    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"></audio>
+    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3" loop></audio>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -294,6 +294,7 @@
                     // song
                     const song = document.getElementById('song');
                     song.currentTime = 0;
+                    song.loop = true;
                     song.play().catch(e => console.log("Audio error:", e));
 
                     // track if we've ended the trial
