@@ -164,7 +164,18 @@
             let lastDataSentTime = 0;
             
             // Initialize communication with Lookit parent frame
-            const originUrl = new URL(document.referrer).origin;
+            // Fix for the URL construction error
+            let originUrl = '*'; // Default to allow any origin
+            try {
+                // Only attempt to get referrer if it exists and is not empty
+                if (document.referrer && document.referrer.trim() !== '') {
+                    const referrerUrl = new URL(document.referrer);
+                    originUrl = referrerUrl.origin;
+                }
+            } catch (error) {
+                console.warn('Could not parse referrer URL:', error);
+                // Continue with the default '*' origin
+            }
             
             // Function to send eye tracking data to Lookit
             function sendEyeDataToLookit(data) {
@@ -178,6 +189,7 @@
                     eyeTrackingData = [];
                     eyeDataBufferSize = 0;
                     lastDataSentTime = Date.now();
+                    console.log('Sent eye tracking data batch:', data.length, 'samples');
                 } catch (err) {
                     console.error('Failed to send eye tracking data to Lookit:', err);
                 }
@@ -220,6 +232,7 @@
             function initializeWebGazer() {
                 // Check if WebGazer is already loaded
                 if (typeof webgazer !== 'undefined') {
+                    console.log('WebGazer found, initializing...');
                     // Configure WebGazer for infant studies
                     webgazer.params.showVideo = false;
                     webgazer.params.showFaceOverlay = false;
@@ -276,6 +289,7 @@
                 .then(function(stream) {
                     // Store for later use
                     window.webcamStream = stream;
+                    console.log('Camera access granted');
                     return true;
                 })
                 .catch(function(err) {
@@ -293,7 +307,9 @@
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
                     <div style="padding: 20px;">
-                        <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
+                        <h2>Welcome to the Mirror Task with Eye Tracking</h2>
+                        <p>We'll use your webcam to show your child their reflection and track their eye movements.</p>
+                        <p>Please click 'Continue' to allow camera access and start the task.</p>
                     </div>
                 `,
                 choices: ['Continue'],
@@ -301,6 +317,7 @@
                     // Request camera permission and initialize WebGazer
                     requestCameraAccess().then(function(success) {
                         if (success) {
+                            console.log('Requesting camera access successful, initializing WebGazer...');
                             // Initialize WebGazer after camera access is granted
                             setTimeout(initializeWebGazer, 1000);
                         }
@@ -316,6 +333,8 @@
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
                     <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
+                        <h2 style="text-align: center; margin-top: 20px;">Eye Tracking Calibration</h2>
+                        <p style="text-align: center;">Please follow the red dot with your eyes</p>
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
                     </div>
                 `,
@@ -346,18 +365,24 @@
                             chime.play().catch(e => console.log("Audio error:", e));
                             
                             // WebGazer calibration for this point
-                            const pointX = parseFloat(positions[currentPos].left) / 100 * window.innerWidth;
-                            const pointY = parseFloat(positions[currentPos].top) / 100 * window.innerHeight;
-                            
-                            // Simulate multiple clicks at this position for better calibration
-                            for (let i = 0; i < 5; i++) {
-                                setTimeout(() => {
-                                    webgazer.recordScreenPosition(
-                                        pointX, 
-                                        pointY, 
-                                        'click'
-                                    );
-                                }, i * 300); // Spread clicks over time
+                            if (typeof webgazer !== 'undefined') {
+                                const pointX = parseFloat(positions[currentPos].left) / 100 * window.innerWidth;
+                                const pointY = parseFloat(positions[currentPos].top) / 100 * window.innerHeight;
+                                
+                                // Simulate multiple clicks at this position for better calibration
+                                for (let i = 0; i < 5; i++) {
+                                    setTimeout(() => {
+                                        try {
+                                            webgazer.recordScreenPosition(
+                                                pointX, 
+                                                pointY, 
+                                                'click'
+                                            );
+                                        } catch (e) {
+                                            console.error('Error during WebGazer calibration:', e);
+                                        }
+                                    }, i * 300); // Spread clicks over time
+                                }
                             }
 
                             currentPos++;
