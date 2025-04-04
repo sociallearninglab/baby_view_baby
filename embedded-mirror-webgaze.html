@@ -1,632 +1,607 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Look Who It Is!</title>
-
-    <!-- permissions policy -->
-    <meta http-equiv="Permissions-Policy" content="camera=self">
-
-    <!-- Load jsPsych -->
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
-    <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
-
-    <!-- Load plugins -->
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
-    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-    
-    <!-- Load WebGazer -->
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: white !important;
-        }
-    
-        #jspsych-target {
-            width: 100%;
-            height: 100%;
-            background-color: white !important;
-        }
-    
-        .calibration-point {
-            position: absolute;
-            width: 50px;
-            height: 50px;
-            background: red;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulse 1s infinite;
-            z-index: 100;
-        }
-    
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.5); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-    
-        #webcam-container {
-            width: 100vw;
-            height: 100vh;
-            background-color: white !important;
-            margin: 0;
-            padding: 0;
-            position: fixed;
-            top: 0;
-            left: 0;
-            overflow: hidden;
-        }
-
-        #webcam {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-
-        #timer {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 18px;
-            display: none;
-            z-index: 100;
-        }
-
-        .instruction-text {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-size: 18px;
-            z-index: 101;
-        }
-        
-        #exit-confirmation {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            border: 2px solid #333;
-            border-radius: 10px;
-            padding: 20px;
-            z-index: 1000;
-            display: none;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-
-        #exit-confirmation h3 {
-            margin-top: 0;
-        }
-
-        #exit-confirmation .button-container {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 20px;
-        }
-
-        #exit-confirmation button {
-            padding: 10px 20px;
-            cursor: pointer;
-            border-radius: 5px;
-            border: none;
-            font-size: 16px;
-        }
-
-        #exit-yes {
-            background-color: #f44336;
-            color: white;
-        }
-
-        #exit-no {
-            background-color: #4CAF50;
-            color: white;
-        }
-        
-        /* Hide WebGazer video - we don't need to show it */
-        #webgazerVideoContainer {
-            display: none !important;
-        }
-    </style>
-</head>
-<body>
-    <div id="jspsych-target"></div>
-    <div id="timer">00:00</div>
-    <div id="exit-confirmation">
-        <h3>Are you sure you want to exit?</h3>
-        <div class="button-container">
-            <button id="exit-yes">Yes</button>
-            <button id="exit-no">No</button>
-        </div>
-    </div>
-    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
-    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3" loop></audio>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize variables for eye tracking data
-            let eyeTrackingData = [];
-            let isRecordingEyeData = false;
-            let eyeDataBufferSize = 0;
-            let lastDataSentTime = 0;
-            
-            // Initialize communication with Lookit parent frame
-            // Fix for the URL construction error
-            let originUrl = '*'; // Default to allow any origin
-            try {
-                // Only attempt to get referrer if it exists and is not empty
-                if (document.referrer && document.referrer.trim() !== '') {
-                    const referrerUrl = new URL(document.referrer);
-                    originUrl = referrerUrl.origin;
-                }
-            } catch (error) {
-                console.warn('Could not parse referrer URL:', error);
-                // Continue with the default '*' origin
-            }
-            
-            // Function to send eye tracking data to Lookit
-            function sendEyeDataToLookit(data) {
-                try {
-                    window.parent.postMessage({
-                        type: 'eyeTracking',
-                        data: data
-                    }, originUrl);
-                    
-                    // Clear the buffer after sending
-                    eyeTrackingData = [];
-                    eyeDataBufferSize = 0;
-                    lastDataSentTime = Date.now();
-                    console.log('Sent eye tracking data batch:', data.length, 'samples');
-                } catch (err) {
-                    console.error('Failed to send eye tracking data to Lookit:', err);
-                }
-            }
-            
-            // Initialize jsPsych
-            const jsPsych = initJsPsych({
-                display_element: 'jspsych-target',
-                on_finish: function() {
-                    console.log("Mirror experiment completed");
-                    
-                    // Send any remaining eye tracking data
-                    if (eyeTrackingData.length > 0) {
-                        sendEyeDataToLookit(eyeTrackingData);
-                    }
-                    
-                    // Send experiment completion message
-                    window.parent.postMessage({
-                        type: 'experimentComplete'
-                    }, originUrl);
-                }
-            });
-
-            // Request and enter fullscreen
-            function enterFullscreen() {
-                if (document.documentElement.requestFullscreen) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.warn("Couldn't enter fullscreen:", err);
-                    });
-                } else if (document.documentElement.mozRequestFullScreen) {
-                    document.documentElement.mozRequestFullScreen();
-                } else if (document.documentElement.webkitRequestFullscreen) {
-                    document.documentElement.webkitRequestFullscreen();
-                } else if (document.documentElement.msRequestFullscreen) {
-                    document.documentElement.msRequestFullscreen();
-                }
-            }
-            
-            // Initialize WebGazer
-            function initializeWebGazer() {
-                // Check if WebGazer is already loaded
-                if (typeof webgazer !== 'undefined') {
-                    console.log('WebGazer found, initializing...');
-                    // Configure WebGazer for infant studies
-                    webgazer.params.showVideo = false;
-                    webgazer.params.showFaceOverlay = false;
-                    webgazer.params.showFaceFeedbackBox = false;
-                    webgazer.params.showGazeDot = false;  // Don't show the prediction dot
-                    
-                    // Use the most robust tracker possible
-                    webgazer.setTracker('TFFacemesh')
-                             .setRegression('ridge')  // Best balance of accuracy and performance
-                             .begin()
-                             .then(() => {
-                                 console.log('WebGazer initialized successfully');
+ <html>
+ <head>
+     <title>Look Who It Is!</title>
+ 
+     <!-- permissions policy -->
+     <meta http-equiv="Permissions-Policy" content="camera=self">
+ 
+     <!-- Load jsPsych -->
+     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
+     <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
+ 
+     <!-- Load plugins -->
+     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
+     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
+     
+     <!-- Load WebGazer -->
+     <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+ 
+     <style>
+         body, html {
+             margin: 0;
+             padding: 0;
+             width: 100vw;
+             height: 100vh;
+             overflow: hidden;
+             background-color: white !important;
+         }
+     
+         #jspsych-target {
+             width: 100%;
+             height: 100%;
+             background-color: white !important;
+         }
+     
+         .calibration-point {
+             position: absolute;
+             width: 50px;
+             height: 50px;
+             background: red;
+             border-radius: 50%;
+             transform: translate(-50%, -50%);
+             animation: pulse 1s infinite;
+             z-index: 100;
+         }
+     
+         @keyframes pulse {
+             0% { transform: translate(-50%, -50%) scale(1); }
+             50% { transform: translate(-50%, -50%) scale(1.5); }
+             100% { transform: translate(-50%, -50%) scale(1); }
+         }
+     
+         #webcam-container {
+             width: 100vw;
+             height: 100vh;
+             background-color: white !important;
+             margin: 0;
+             padding: 0;
+             position: fixed;
+             top: 0;
+             left: 0;
+             overflow: hidden;
+         }
+ 
+         #webcam {
+             width: 100%;
+             height: 100%;
+             object-fit: cover;
+             transform: scaleX(-1);
+         }
+ 
+         #timer {
+             position: fixed;
+             top: 10px;
+             right: 10px;
+             background-color: rgba(0, 0, 0, 0.5);
+             color: white;
+             padding: 5px 10px;
+             border-radius: 5px;
+             font-size: 18px;
+             display: none;
+             z-index: 100;
+         }
+ 
+         .instruction-text {
+             position: absolute;
+             bottom: 20px;
+             left: 0;
+             width: 100%;
+             text-align: center;
+             color: white;
+             font-size: 18px;
+             z-index: 101;
+         }
+         
+         #exit-confirmation {
+             position: fixed;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             background-color: white;
+             border: 2px solid #333;
+             border-radius: 10px;
+             padding: 20px;
+             z-index: 1000;
+             display: none;
+             text-align: center;
+             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+         }
+ 
+         #exit-confirmation h3 {
+             margin-top: 0;
+         }
+ 
+         #exit-confirmation .button-container {
+             display: flex;
+             justify-content: space-around;
+             margin-top: 20px;
+         }
+ 
+         #exit-confirmation button {
+             padding: 10px 20px;
+             cursor: pointer;
+             border-radius: 5px;
+             border: none;
+             font-size: 16px;
+         }
+ 
+         #exit-yes {
+             background-color: #f44336;
+             color: white;
+         }
+ 
+         #exit-no {
+             background-color: #4CAF50;
+             color: white;
+         }
+         
+         /* Hide WebGazer video - we don't need to show it */
+         #webgazerVideoContainer {
+             display: none !important;
+         }
+     </style>
+ </head>
+ <body>
+     <div id="jspsych-target"></div>
+     <div id="timer">00:00</div>
+     <div id="exit-confirmation">
+         <h3>Are you sure you want to exit?</h3>
+         <div class="button-container">
+             <button id="exit-yes">Yes</button>
+             <button id="exit-no">No</button>
+         </div>
+     </div>
+     <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+     <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3" loop></audio>
+ 
+     <script>
+         document.addEventListener('DOMContentLoaded', function() {
+             // Initialize variables for eye tracking data
+             let eyeTrackingData = [];
+             let isRecordingEyeData = false;
+             let eyeDataBufferSize = 0;
+             let lastDataSentTime = 0;
+             
+             // Initialize communication with Lookit parent frame
+             const originUrl = new URL(document.referrer).origin;
+             
+             // Function to send eye tracking data to Lookit
+             function sendEyeDataToLookit(data) {
+                 try {
+                     window.parent.postMessage({
+                         type: 'eyeTracking',
+                         data: data
+                     }, originUrl);
+                     
+                     // Clear the buffer after sending
+                     eyeTrackingData = [];
+                     eyeDataBufferSize = 0;
+                     lastDataSentTime = Date.now();
+                 } catch (err) {
+                     console.error('Failed to send eye tracking data to Lookit:', err);
+                 }
+             }
+             
+             // Initialize jsPsych
+             const jsPsych = initJsPsych({
+                 display_element: 'jspsych-target',
+                 on_finish: function() {
+                     console.log("Mirror experiment completed");
+                     
+                     // Send any remaining eye tracking data
+                     if (eyeTrackingData.length > 0) {
+                         sendEyeDataToLookit(eyeTrackingData);
+                     }
+                     
+                     // Send experiment completion message
+                     window.parent.postMessage({
+                         type: 'experimentComplete'
+                     }, originUrl);
+                 }
+             });
+ 
+             // Request and enter fullscreen
+             function enterFullscreen() {
+                 if (document.documentElement.requestFullscreen) {
+                     document.documentElement.requestFullscreen().catch(err => {
+                         console.warn("Couldn't enter fullscreen:", err);
+                     });
+                 } else if (document.documentElement.mozRequestFullScreen) {
+                     document.documentElement.mozRequestFullScreen();
+                 } else if (document.documentElement.webkitRequestFullscreen) {
+                     document.documentElement.webkitRequestFullscreen();
+                 } else if (document.documentElement.msRequestFullscreen) {
+                     document.documentElement.msRequestFullscreen();
+                 }
+             }
+             
+             // Initialize WebGazer
+             function initializeWebGazer() {
+                 // Check if WebGazer is already loaded
+                 if (typeof webgazer !== 'undefined') {
+                     // Configure WebGazer for infant studies
+                     webgazer.params.showVideo = false;
+                     webgazer.params.showFaceOverlay = false;
+                     webgazer.params.showFaceFeedbackBox = false;
+                     webgazer.params.showGazeDot = false;  // Don't show the prediction dot
+                     
+                     // Use the most robust tracker possible
+                     webgazer.setTracker('TFFacemesh')
+                              .setRegression('ridge')  // Best balance of accuracy and performance
+                              .begin()
+                              .then(() => {
+                                  console.log('WebGazer initialized successfully');
+                                  
+                                  // Set up gaze listener to collect data
+                                  webgazer.setGazeListener((data, timestamp) => {
+                                      if (isRecordingEyeData && data && data.x && data.y) {
+                                          // Add timestamp if not provided
+                                          if (!timestamp) timestamp = Date.now();
+                                          
+                                          // Save the data
+                                          eyeTrackingData.push({
+                                              x: data.x,
+                                              y: data.y,
+                                              timestamp: timestamp
+                                          });
+                                          
+                                          eyeDataBufferSize++;
+                                          
+                                          // Send data when buffer gets large enough or enough time has passed
+                                          if (eyeDataBufferSize >= 600 || // Send every 600 samples (10 seconds at 60Hz)
+                                              (Date.now() - lastDataSentTime > 10000)) { // or at least every 10 seconds
+                                              sendEyeDataToLookit(eyeTrackingData);
+                                          }
+                                      }
+                                  });
+                              })
+                              .catch(err => {
+                                  console.error('WebGazer initialization error:', err);
+                              });
+                 } else {
+                     console.error('WebGazer not loaded');
+                 }
+             }
+             
+             // Pre-request camera permission
+             function requestCameraAccess() {
+                 return navigator.mediaDevices.getUserMedia({ 
+                     video: { 
+                         width: { ideal: 1920 },
+                         height: { ideal: 1080 },
+                         facingMode: 'user' // prefer front-facing camera
+                     }
+                 })
+                 .then(function(stream) {
+                     // Store for later use
+                     window.webcamStream = stream;
+                     return true;
+                 })
+                 .catch(function(err) {
+                     console.error("Webcam error:", err);
+                     if (err.name === 'NotAllowedError') {
+                         alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                     } else {
+                         alert('Error accessing webcam: ' + err.message);
+                     }
+                     return false;
+                 });
+             }
+ 
+             const fullScreenInstructionTrial = {
+                 type: jsPsychHtmlButtonResponse,
+                 stimulus: `
+                     <div style="padding: 20px;">
+                         <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
+                     </div>
+                 `,
+                 choices: ['Continue'],
+                 on_load: function() {
+                     // Request camera permission and initialize WebGazer
+                     requestCameraAccess().then(function(success) {
+                         if (success) {
+                             // Initialize WebGazer after camera access is granted
+                             setTimeout(initializeWebGazer, 1000);
+                         }
+                     });
+                 },
+                 on_finish: function() {
+                     enterFullscreen();
+                 }
+             };
+ 
+             // Calibration with WebGazer integration
+             const calibrationTrial = {
+                 type: jsPsychHtmlKeyboardResponse,
+                 stimulus: `
+                     <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
+                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
+                     </div>
+                 `,
+                 choices: "NO_KEYS",
+                 trial_duration: 10000, // 10 seconds calibration
+                 on_load: function() {
+                     const point = document.getElementById('calibration-point');
+                     const chime = document.getElementById('chime');
+ 
+                     // Positions for calibration (5 points)
+                     const positions = [
+                         { left: '50%', top: '50%' },
+                         { left: '20%', top: '20%' },
+                         { left: '80%', top: '20%' },
+                         { left: '20%', top: '80%' },
+                         { left: '80%', top: '80%' }
+                     ];
+ 
+                     let currentPos = 0;
+ 
+                     function moveDot() {
+                         if (currentPos < positions.length) {
+                             point.style.left = positions[currentPos].left;
+                             point.style.top = positions[currentPos].top;
+ 
+                             // Play sound
+                             chime.currentTime = 0;
+                             chime.play().catch(e => console.log("Audio error:", e));
+                             
+                             // WebGazer calibration for this point
+                             const pointX = parseFloat(positions[currentPos].left) / 100 * window.innerWidth;
+                             const pointY = parseFloat(positions[currentPos].top) / 100 * window.innerHeight;
+                             
+                             // Simulate multiple clicks at this position for better calibration
+                             for (let i = 0; i < 5; i++) {
+                                 setTimeout(() => {
+                                     webgazer.recordScreenPosition(
+                                         pointX, 
+                                         pointY, 
+                                         'click'
+                                     );
+                                 }, i * 300); // Spread clicks over time
+                             }
+ 
+                             currentPos++;
+                             setTimeout(moveDot, 2000);
+                         }
+                     }
+ 
+                     // Start the sequence
+                     moveDot();
+                 }
+             };
+ 
+             // Mirror trial with eye tracking
+             const mirrorTrial = {
+                 type: jsPsychHtmlKeyboardResponse,
+                 stimulus: `
+                     <div id="webcam-container">
+                         <video id="webcam" autoplay playsinline></video>
+                     </div>
+                 `,
+                 choices: [], // no predefined key choices (handle Esc manually)
+                 trial_duration: 180000, // 3 minutes
+                 on_load: function(data) {
+                     // Start recording eye tracking data
+                     isRecordingEyeData = true;
+                     lastDataSentTime = Date.now();
+                     
+                     // Manual event listener for E key
+                     const escapeHandler = function(e) {
+                         if (e.key === 'e' || e.key === 'E') {
+                             e.preventDefault(); // Prevent default behavior
+                             document.getElementById('exit-confirmation').style.display = 'block';
+                         }
+                     };
+                     
+                     // Event listener
+                     document.addEventListener('keydown', escapeHandler);
+                     
+                     // Store for later removal using a global variable
+                     window.mirrorEscapeHandler = escapeHandler;
+                     
+                     // Timer
+                     const timerEl = document.getElementById('timer');
+                     timerEl.style.display = 'block';
+ 
+                     // Song
+                     const song = document.getElementById('song');
+                     song.currentTime = 0;
+                     song.loop = true;
+                     song.play().catch(e => console.log("Audio error:", e));
+ 
+                     // Track if we've ended the trial
+                     let trialEnded = false;
+                     
+                     // Setup exit confirmation dialog
+                     const exitConfirmation = document.getElementById('exit-confirmation');
+                     const exitYes = document.getElementById('exit-yes');
+                     const exitNo = document.getElementById('exit-no');
+                     
+                     exitYes.addEventListener('click', function() {
+                         exitConfirmation.style.display = 'none';
+                         if (!trialEnded) {
+                             trialEnded = true;
+                             
+                             // Stop eye tracking
+                             isRecordingEyeData = false;
+                             
+                             // Send any remaining eye tracking data
+                             if (eyeTrackingData.length > 0) {
+                                 sendEyeDataToLookit(eyeTrackingData);
+                             }
+                             
+                             if (window.webcamStream) {
+                                 window.webcamStream.getTracks().forEach(track => track.stop());
+                             }
+                             
+                             // Stop WebGazer
+                             if (typeof webgazer !== 'undefined') {
+                                 webgazer.end();
+                             }
+                             
+                             song.pause();
+                             timerEl.style.display = 'none';
+                             
+                             // Close the window
+                             try {
+                                 window.close();
+                             } catch (e) {
+                                 console.log("Couldn't close window:", e);
+                                 // End the trial and go to final screen
+                                 jsPsych.finishTrial();
+                             }
+                         }
+                     });
+                     
+                     exitNo.addEventListener('click', function() {
+                         exitConfirmation.style.display = 'none';
+                     });
+ 
+                     // Try to use existing webcam stream if available
+                     if (window.webcamStream && window.webcamStream.active) {
+                         const video = document.getElementById('webcam');
+                         video.srcObject = window.webcamStream;
+                         startTimer();
+                     } else {
+                         // If webcam stream not available yet, request it again
+                         navigator.mediaDevices.getUserMedia({ 
+                             video: { 
+                                 width: { ideal: 1920 },
+                                 height: { ideal: 1080 },
+                                 facingMode: 'user'
+                             }
+                         })
+                         .then(function(stream) {
+                             const video = document.getElementById('webcam');
+                             video.srcObject = stream;
+                             window.webcamStream = stream;
+                             startTimer();
+                         })
+                         .catch(function(err) {
+                             console.error("Webcam error:", err);
+                             if (err.name === 'NotAllowedError') {
+                                 alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
+                             } else {
+                                 alert('Error accessing webcam: ' + err.message);
+                             }
+                             // End the trial if webcam fails
+                             if (!trialEnded) {
+                                 trialEnded = true;
+                                 jsPsych.finishTrial();
+                             }
+                         });
+                     }
+ 
+                     // Start timer function (extracted to avoid duplicate code)
+                     function startTimer() {
+                         let timeLeft = 180; // 3 min
+                         const updateTimer = () => {
+                             const minutes = Math.floor(timeLeft / 60);
+                             const seconds = timeLeft % 60;
+                             timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+ 
+                             if (timeLeft > 0) {
+                                 timeLeft--;
+                                 setTimeout(updateTimer, 1000);
+                             } else if (!trialEnded) {
+                                 // Force trial to end when timer reaches 0, but only if we haven't already ended it
+                                 trialEnded = true;
                                  
-                                 // Set up gaze listener to collect data
-                                 webgazer.setGazeListener((data, timestamp) => {
-                                     if (isRecordingEyeData && data && data.x && data.y) {
-                                         // Add timestamp if not provided
-                                         if (!timestamp) timestamp = Date.now();
-                                         
-                                         // Save the data
-                                         eyeTrackingData.push({
-                                             x: data.x,
-                                             y: data.y,
-                                             timestamp: timestamp
-                                         });
-                                         
-                                         eyeDataBufferSize++;
-                                         
-                                         // Send data when buffer gets large enough or enough time has passed
-                                         if (eyeDataBufferSize >= 600 || // Send every 600 samples (10 seconds at 60Hz)
-                                             (Date.now() - lastDataSentTime > 10000)) { // or at least every 10 seconds
-                                             sendEyeDataToLookit(eyeTrackingData);
-                                         }
-                                     }
-                                 });
-                             })
-                             .catch(err => {
-                                 console.error('WebGazer initialization error:', err);
-                             });
-                } else {
-                    console.error('WebGazer not loaded');
-                }
-            }
-            
-            // Pre-request camera permission
-            function requestCameraAccess() {
-                return navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                        facingMode: 'user' // prefer front-facing camera
-                    }
-                })
-                .then(function(stream) {
-                    // Store for later use
-                    window.webcamStream = stream;
-                    console.log('Camera access granted');
-                    return true;
-                })
-                .catch(function(err) {
-                    console.error("Webcam error:", err);
-                    if (err.name === 'NotAllowedError') {
-                        alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                    } else {
-                        alert('Error accessing webcam: ' + err.message);
-                    }
-                    return false;
-                });
-            }
-
-            const fullScreenInstructionTrial = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div style="padding: 20px;">
-                        <h2>Welcome to the Mirror Task with Eye Tracking</h2>
-                        <p>We'll use your webcam to show your child their reflection and track their eye movements.</p>
-                        <p>Please click 'Continue' to allow camera access and start the task.</p>
-                    </div>
-                `,
-                choices: ['Continue'],
-                on_load: function() {
-                    // Request camera permission and initialize WebGazer
-                    requestCameraAccess().then(function(success) {
-                        if (success) {
-                            console.log('Requesting camera access successful, initializing WebGazer...');
-                            // Initialize WebGazer after camera access is granted
-                            setTimeout(initializeWebGazer, 1000);
-                        }
-                    });
-                },
-                on_finish: function() {
-                    enterFullscreen();
-                }
-            };
-
-            // Calibration with WebGazer integration
-            const calibrationTrial = {
-                type: jsPsychHtmlKeyboardResponse,
-                stimulus: `
-                    <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
-                        <h2 style="text-align: center; margin-top: 20px;">Eye Tracking Calibration</h2>
-                        <p style="text-align: center;">Please follow the red dot with your eyes</p>
-                        <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
-                    </div>
-                `,
-                choices: "NO_KEYS",
-                trial_duration: 10000, // 10 seconds calibration
-                on_load: function() {
-                    const point = document.getElementById('calibration-point');
-                    const chime = document.getElementById('chime');
-
-                    // Positions for calibration (5 points)
-                    const positions = [
-                        { left: '50%', top: '50%' },
-                        { left: '20%', top: '20%' },
-                        { left: '80%', top: '20%' },
-                        { left: '20%', top: '80%' },
-                        { left: '80%', top: '80%' }
-                    ];
-
-                    let currentPos = 0;
-
-                    function moveDot() {
-                        if (currentPos < positions.length) {
-                            point.style.left = positions[currentPos].left;
-                            point.style.top = positions[currentPos].top;
-
-                            // Play sound
-                            chime.currentTime = 0;
-                            chime.play().catch(e => console.log("Audio error:", e));
-                            
-                            // WebGazer calibration for this point
-                            if (typeof webgazer !== 'undefined') {
-                                const pointX = parseFloat(positions[currentPos].left) / 100 * window.innerWidth;
-                                const pointY = parseFloat(positions[currentPos].top) / 100 * window.innerHeight;
-                                
-                                // Simulate multiple clicks at this position for better calibration
-                                for (let i = 0; i < 5; i++) {
-                                    setTimeout(() => {
-                                        try {
-                                            webgazer.recordScreenPosition(
-                                                pointX, 
-                                                pointY, 
-                                                'click'
-                                            );
-                                        } catch (e) {
-                                            console.error('Error during WebGazer calibration:', e);
-                                        }
-                                    }, i * 300); // Spread clicks over time
-                                }
-                            }
-
-                            currentPos++;
-                            setTimeout(moveDot, 2000);
-                        }
-                    }
-
-                    // Start the sequence
-                    moveDot();
-                }
-            };
-
-            // Mirror trial with eye tracking
-            const mirrorTrial = {
-                type: jsPsychHtmlKeyboardResponse,
-                stimulus: `
-                    <div id="webcam-container">
-                        <video id="webcam" autoplay playsinline></video>
-                    </div>
-                `,
-                choices: [], // no predefined key choices (handle Esc manually)
-                trial_duration: 180000, // 3 minutes
-                on_load: function(data) {
-                    // Start recording eye tracking data
-                    isRecordingEyeData = true;
-                    lastDataSentTime = Date.now();
-                    
-                    // Manual event listener for E key
-                    const escapeHandler = function(e) {
-                        if (e.key === 'e' || e.key === 'E') {
-                            e.preventDefault(); // Prevent default behavior
-                            document.getElementById('exit-confirmation').style.display = 'block';
-                        }
-                    };
-                    
-                    // Event listener
-                    document.addEventListener('keydown', escapeHandler);
-                    
-                    // Store for later removal using a global variable
-                    window.mirrorEscapeHandler = escapeHandler;
-                    
-                    // Timer
-                    const timerEl = document.getElementById('timer');
-                    timerEl.style.display = 'block';
-
-                    // Song
-                    const song = document.getElementById('song');
-                    song.currentTime = 0;
-                    song.loop = true;
-                    song.play().catch(e => console.log("Audio error:", e));
-
-                    // Track if we've ended the trial
-                    let trialEnded = false;
-                    
-                    // Setup exit confirmation dialog
-                    const exitConfirmation = document.getElementById('exit-confirmation');
-                    const exitYes = document.getElementById('exit-yes');
-                    const exitNo = document.getElementById('exit-no');
-                    
-                    exitYes.addEventListener('click', function() {
-                        exitConfirmation.style.display = 'none';
-                        if (!trialEnded) {
-                            trialEnded = true;
-                            
-                            // Stop eye tracking
-                            isRecordingEyeData = false;
-                            
-                            // Send any remaining eye tracking data
-                            if (eyeTrackingData.length > 0) {
-                                sendEyeDataToLookit(eyeTrackingData);
-                            }
-                            
-                            if (window.webcamStream) {
-                                window.webcamStream.getTracks().forEach(track => track.stop());
-                            }
-                            
-                            // Stop WebGazer
-                            if (typeof webgazer !== 'undefined') {
-                                webgazer.end();
-                            }
-                            
-                            song.pause();
-                            timerEl.style.display = 'none';
-                            
-                            // Close the window
-                            try {
-                                window.close();
-                            } catch (e) {
-                                console.log("Couldn't close window:", e);
-                                // End the trial and go to final screen
-                                jsPsych.finishTrial();
-                            }
-                        }
-                    });
-                    
-                    exitNo.addEventListener('click', function() {
-                        exitConfirmation.style.display = 'none';
-                    });
-
-                    // Try to use existing webcam stream if available
-                    if (window.webcamStream && window.webcamStream.active) {
-                        const video = document.getElementById('webcam');
-                        video.srcObject = window.webcamStream;
-                        startTimer();
-                    } else {
-                        // If webcam stream not available yet, request it again
-                        navigator.mediaDevices.getUserMedia({ 
-                            video: { 
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 },
-                                facingMode: 'user'
-                            }
-                        })
-                        .then(function(stream) {
-                            const video = document.getElementById('webcam');
-                            video.srcObject = stream;
-                            window.webcamStream = stream;
-                            startTimer();
-                        })
-                        .catch(function(err) {
-                            console.error("Webcam error:", err);
-                            if (err.name === 'NotAllowedError') {
-                                alert('Camera access was blocked. Please check your browser settings and allow camera access for this site.');
-                            } else {
-                                alert('Error accessing webcam: ' + err.message);
-                            }
-                            // End the trial if webcam fails
-                            if (!trialEnded) {
-                                trialEnded = true;
-                                jsPsych.finishTrial();
-                            }
-                        });
-                    }
-
-                    // Start timer function (extracted to avoid duplicate code)
-                    function startTimer() {
-                        let timeLeft = 180; // 3 min
-                        const updateTimer = () => {
-                            const minutes = Math.floor(timeLeft / 60);
-                            const seconds = timeLeft % 60;
-                            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                            if (timeLeft > 0) {
-                                timeLeft--;
-                                setTimeout(updateTimer, 1000);
-                            } else if (!trialEnded) {
-                                // Force trial to end when timer reaches 0, but only if we haven't already ended it
-                                trialEnded = true;
-                                
-                                // Stop eye tracking
-                                isRecordingEyeData = false;
-                                
-                                // Send any remaining eye tracking data
-                                if (eyeTrackingData.length > 0) {
-                                    sendEyeDataToLookit(eyeTrackingData);
-                                }
-                                
-                                if (window.webcamStream) {
-                                    window.webcamStream.getTracks().forEach(track => track.stop());
-                                }
-                                
-                                // Stop WebGazer
-                                if (typeof webgazer !== 'undefined') {
-                                    webgazer.end();
-                                }
-                                
-                                song.pause();
-                                timerEl.style.display = 'none';
-                                
-                                // End trial
-                                jsPsych.finishTrial();
-                            }
-                        };
-
-                        updateTimer();
-                    }
-                },
-                on_finish: function() {
-                    // Stop recording eye tracking data
-                    isRecordingEyeData = false;
-                    
-                    if (window.mirrorEscapeHandler) {
-                        document.removeEventListener('keydown', window.mirrorEscapeHandler);
-                    }
-                    
-                    const song = document.getElementById('song');
-                    song.pause();
-                    document.getElementById('timer').style.display = 'none';
-                    
-                    if (window.webcamStream) {
-                        window.webcamStream.getTracks().forEach(track => track.stop());
-                    }
-                    
-                    // Stop WebGazer
-                    if (typeof webgazer !== 'undefined') {
-                        webgazer.end();
-                    }
-                    
-                    // Send any remaining eye tracking data
-                    if (eyeTrackingData.length > 0) {
-                        sendEyeDataToLookit(eyeTrackingData);
-                    }
-                }
-            };
-
-            // Final screen
-            const complete = {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div style="text-align: center; padding: 20px; background-color: white; color: black;">
-                        <h2 style="color: black; font-size: 36px;">All done!</h2>
-                        <p style="color: black; font-size: 24px;">Please close this window and return to Lookit where you may continue.</p>
-                    </div>
-                `,
-                choices: ['Close Window'],
-                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
-                on_finish: function() {
-                    window.close();
-                }
-            };
-
-            // Timeline
-            const timeline = [
-                fullScreenInstructionTrial,
-                calibrationTrial,
-                mirrorTrial,
-                complete
-            ];
-
-            // Check if we should return to Lookit after experiment
-            const urlParams = new URLSearchParams(window.location.search);
-            const returnToLookit = urlParams.get('returnToLookit') === 'true';
-
-            // Add an event listener for when the experiment is complete
-            jsPsych.finishCallback = function() {
-                if (returnToLookit) {
-                    // Attempt to return to Lookit
-                    window.location.href = window.parent.location.href;
-                }
-            };
-
-            // Start the experiment
-            jsPsych.run(timeline);
-        });
-    </script>
-</body>
-</html>
+                                 // Stop eye tracking
+                                 isRecordingEyeData = false;
+                                 
+                                 // Send any remaining eye tracking data
+                                 if (eyeTrackingData.length > 0) {
+                                     sendEyeDataToLookit(eyeTrackingData);
+                                 }
+                                 
+                                 if (window.webcamStream) {
+                                     window.webcamStream.getTracks().forEach(track => track.stop());
+                                 }
+                                 
+                                 // Stop WebGazer
+                                 if (typeof webgazer !== 'undefined') {
+                                     webgazer.end();
+                                 }
+                                 
+                                 song.pause();
+                                 timerEl.style.display = 'none';
+                                 
+                                 // End trial
+                                 jsPsych.finishTrial();
+                             }
+                         };
+ 
+                         updateTimer();
+                     }
+                 },
+                 on_finish: function() {
+                     // Stop recording eye tracking data
+                     isRecordingEyeData = false;
+                     
+                     if (window.mirrorEscapeHandler) {
+                         document.removeEventListener('keydown', window.mirrorEscapeHandler);
+                     }
+                     
+                     const song = document.getElementById('song');
+                     song.pause();
+                     document.getElementById('timer').style.display = 'none';
+                     
+                     if (window.webcamStream) {
+                         window.webcamStream.getTracks().forEach(track => track.stop());
+                     }
+                     
+                     // Stop WebGazer
+                     if (typeof webgazer !== 'undefined') {
+                         webgazer.end();
+                     }
+                     
+                     // Send any remaining eye tracking data
+                     if (eyeTrackingData.length > 0) {
+                         sendEyeDataToLookit(eyeTrackingData);
+                     }
+                 }
+             };
+ 
+             // Final screen
+             const complete = {
+                 type: jsPsychHtmlButtonResponse,
+                 stimulus: `
+                     <div style="text-align: center; padding: 20px; background-color: white; color: black;">
+                         <h2 style="color: black; font-size: 36px;">All done!</h2>
+                         <p style="color: black; font-size: 24px;">Please close this window and return to Lookit where you may continue.</p>
+                     </div>
+                 `,
+                 choices: ['Close Window'],
+                 button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 30px; background-color: #4CAF50; color: white;">%choice%</button>',
+                 on_finish: function() {
+                     window.close();
+                 }
+             };
+ 
+             // Timeline
+             const timeline = [
+                 fullScreenInstructionTrial,
+                 calibrationTrial,
+                 mirrorTrial,
+                 complete
+             ];
+ 
+             // Check if we should return to Lookit after experiment
+             const urlParams = new URLSearchParams(window.location.search);
+             const returnToLookit = urlParams.get('returnToLookit') === 'true';
+ 
+             // Add an event listener for when the experiment is complete
+             jsPsych.finishCallback = function() {
+                 if (returnToLookit) {
+                     // Attempt to return to Lookit
+                     window.location.href = window.parent.location.href;
+                 }
+             };
+ 
+             // Start the experiment
+             jsPsych.run(timeline);
+         });
+     </script>
+ </body>
+ </html>
