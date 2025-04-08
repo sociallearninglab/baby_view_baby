@@ -252,133 +252,171 @@
 
             // mirror trial - simplified for iframe
             const mirrorTrial = {
-                type: jsPsychHtmlKeyboardResponse,
-                stimulus: `
-                    <div id="webcam-container">
-                        <video id="webcam" autoplay playsinline></video>
-                    </div>
-                `,
-                choices: [], // no predefined key choices, handle manual events
-                trial_duration: 180000, // 3 minutes
-                on_load: function(data) {
-                    // manual event listener for E key
-                    const escapeHandler = function(e) {
-                        if (e.key === 'e' || e.key === 'E') {
-                            e.preventDefault(); // Prevent default behavior
-                            document.getElementById('exit-confirmation').style.display = 'block';
-                        }
-                    };
-                    
-                    // event listener
-                    document.addEventListener('keydown', escapeHandler);
-                    
-                    // store for later removal using a global variable
-                    window.mirrorEscapeHandler = escapeHandler;
-                    
-                    // timer
-                    const timerEl = document.getElementById('timer');
-                    timerEl.style.display = 'block';
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div id="webcam-container">
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+    `,
+    choices: [],
+    trial_duration: 180000, // 3 minutes
+    on_load: function(data) {
+        // Keep your existing event handlers for exit functionality
+        const escapeHandler = function(e) {
+            if (e.key === 'e' || e.key === 'E') {
+                e.preventDefault();
+                document.getElementById('exit-confirmation').style.display = 'block';
+            }
+        };
+        
+        document.addEventListener('keydown', escapeHandler);
+        window.mirrorEscapeHandler = escapeHandler;
+        
+        // Timer and song setup
+        const timerEl = document.getElementById('timer');
+        timerEl.style.display = 'block';
 
-                    // song
-                    const song = document.getElementById('song');
-                    song.currentTime = 0;
-                    song.loop = true;
-                    song.play().catch(e => console.log("Audio error:", e));
+        const song = document.getElementById('song');
+        song.currentTime = 0;
+        song.loop = true;
+        song.play().catch(e => console.log("Audio error:", e));
 
-                    // track if we've ended the trial
-                    let trialEnded = false;
-                    
-                    // setup exit confirmation dialog
-                    const exitConfirmation = document.getElementById('exit-confirmation');
-                    const exitYes = document.getElementById('exit-yes');
-                    const exitNo = document.getElementById('exit-no');
-                    
-                    exitYes.addEventListener('click', function() {
-                        exitConfirmation.style.display = 'none';
-                        if (!trialEnded) {
-                            trialEnded = true;
-                            
-                            if (window.webcamStream) {
-                                window.webcamStream.getTracks().forEach(track => track.stop());
-                            }
-                            song.pause();
-                            timerEl.style.display = 'none';
-                            
-                            // Instead of closing window, end trial
-                            jsPsych.finishTrial();
-                        }
-                    });
-                    
-                    exitNo.addEventListener('click', function() {
-                        exitConfirmation.style.display = 'none';
-                    });
+        let trialEnded = false;
+        
+        // Exit confirmation setup
+        const exitConfirmation = document.getElementById('exit-confirmation');
+        const exitYes = document.getElementById('exit-yes');
+        const exitNo = document.getElementById('exit-no');
+        
+        exitYes.addEventListener('click', function() {
+            exitConfirmation.style.display = 'none';
+            if (!trialEnded) {
+                trialEnded = true;
+                song.pause();
+                timerEl.style.display = 'none';
+                jsPsych.finishTrial();
+            }
+        });
+        
+        exitNo.addEventListener('click', function() {
+            exitConfirmation.style.display = 'none';
+        });
 
-                    // Request camera access directly
-                    navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            facingMode: 'user'
-                        }
-                    })
-                    .then(function(stream) {
+        // Request camera stream from Lookit parent frame
+        try {
+            window.parent.postMessage({
+                type: 'getLookitCameraStream',
+                data: {}
+            }, '*');
+            
+            // Listen for response with the stream
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'lookitCameraStream') {
+                    // Check if we have a stream object
+                    if (event.data.stream) {
                         const video = document.getElementById('webcam');
-                        video.srcObject = stream;
-                        window.webcamStream = stream;
+                        video.srcObject = event.data.stream;
                         startTimer();
-                    })
-                    .catch(function(err) {
-                        console.error("Webcam error:", err);
-                        alert('Error accessing webcam: ' + err.message);
-                        // End the trial if webcam fails
-                        if (!trialEnded) {
-                            trialEnded = true;
-                            jsPsych.finishTrial();
-                        }
-                    });
-
-                    // Start timer function
-                    function startTimer() {
-                        let timeLeft = 180; // 3 min
-                        const updateTimer = () => {
-                            const minutes = Math.floor(timeLeft / 60);
-                            const seconds = timeLeft % 60;
-                            timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                            if (timeLeft > 0) {
-                                timeLeft--;
-                                setTimeout(updateTimer, 1000);
-                            } else if (!trialEnded) {
-                                // force trial to end when timer reaches 0
-                                trialEnded = true;
-                                if (window.webcamStream) {
-                                    window.webcamStream.getTracks().forEach(track => track.stop());
-                                }
-                                song.pause();
-                                timerEl.style.display = 'none';
-                                
-                                // end trial
-                                jsPsych.finishTrial();
-                            }
-                        };
-
-                        updateTimer();
+                    } else {
+                        handleCameraError(new Error('No stream received from Lookit'));
                     }
-                },
-                on_finish: function() {
-                    if (window.mirrorEscapeHandler) {
-                        document.removeEventListener('keydown', window.mirrorEscapeHandler);
-                    }
-                    
-                    const song = document.getElementById('song');
-                    song.pause();
-                    document.getElementById('timer').style.display = 'none';
-                    
+                }
+            });
+            
+            // Set a timeout in case we don't get a response
+            setTimeout(function() {
+                if (!document.getElementById('webcam').srcObject) {
+                    // Fall back to direct camera access if no response from parent
+                    requestDirectCameraAccess();
+                }
+            }, 2000);
+            
+        } catch (e) {
+            console.error("Error requesting Lookit camera stream:", e);
+            // Fall back to direct camera access
+            requestDirectCameraAccess();
+        }
+        
+        // Function to request camera directly as fallback
+        function requestDirectCameraAccess() {
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    facingMode: 'user'
+                }
+            })
+            .then(function(stream) {
+                const video = document.getElementById('webcam');
+                video.srcObject = stream;
+                window.webcamStream = stream;
+                startTimer();
+            })
+            .catch(function(err) {
+                handleCameraError(err);
+            });
+        }
+        
+        // Handle camera errors gracefully
+        function handleCameraError(err) {
+            console.error("Webcam error:", err);
+            
+            // Show error message in the webcam container
+            const webcamContainer = document.getElementById('webcam-container');
+            webcamContainer.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background-color: white;">
+                    <div style="text-align: center; padding: 20px;">
+                        <h3 style="color: #d32f2f;">Camera Access Error</h3>
+                        <p>We couldn't access the camera stream.</p>
+                        <p>You can continue the experiment without the mirror or try refreshing the page.</p>
+                    </div>
+                </div>
+            `;
+            
+            // Still start the timer so the trial will end
+            startTimer();
+        }
+
+        // Start timer function - same as your original
+        function startTimer() {
+            let timeLeft = 180; // 3 min
+            const updateTimer = () => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    setTimeout(updateTimer, 1000);
+                } else if (!trialEnded) {
+                    trialEnded = true;
                     if (window.webcamStream) {
                         window.webcamStream.getTracks().forEach(track => track.stop());
                     }
+                    song.pause();
+                    timerEl.style.display = 'none';
+                    jsPsych.finishTrial();
                 }
             };
+
+            updateTimer();
+        }
+    },
+    on_finish: function() {
+        // Cleanup code remains the same
+        if (window.mirrorEscapeHandler) {
+            document.removeEventListener('keydown', window.mirrorEscapeHandler);
+        }
+        
+        const song = document.getElementById('song');
+        song.pause();
+        document.getElementById('timer').style.display = 'none';
+        
+        if (window.webcamStream) {
+            window.webcamStream.getTracks().forEach(track => track.stop());
+        }
+    }
+};
 
             // final screen - modified for iframe
             const complete = {
