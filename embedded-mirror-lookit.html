@@ -13,9 +13,6 @@
     <!-- Load plugins -->
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
     <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
-    
-    <!-- Load WebGazer -->
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
 
     <style>
         body, html {
@@ -135,11 +132,6 @@
             background-color: #4CAF50;
             color: white;
         }
-        
-        /* Hide WebGazer video - we don't need to show it */
-        #webgazerVideoContainer {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
@@ -157,63 +149,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize variables for eye tracking data
-            let eyeTrackingData = [];
-            let isRecordingEyeData = false;
-            let eyeDataBufferSize = 0;
-            let lastDataSentTime = 0;
-            
-            // Initialize communication with Lookit parent frame
-            // Fix for the URL construction error
-            let originUrl = '*'; // Default to allow any origin
-            try {
-                // Only attempt to get referrer if it exists and is not empty
-                if (document.referrer && document.referrer.trim() !== '') {
-                    const referrerUrl = new URL(document.referrer);
-                    originUrl = referrerUrl.origin;
-                }
-            } catch (error) {
-                console.warn('Could not parse referrer URL:', error);
-                // Continue with the default '*' origin
-            }
-            
-            // Function to send eye tracking data to Lookit
-            function sendEyeDataToLookit(data) {
-                try {
-                    window.parent.postMessage({
-                        type: 'eyeTracking',
-                        data: data
-                    }, originUrl);
-                    
-                    // Clear the buffer after sending
-                    eyeTrackingData = [];
-                    eyeDataBufferSize = 0;
-                    lastDataSentTime = Date.now();
-                    console.log('Sent eye tracking data batch:', data.length, 'samples');
-                } catch (err) {
-                    console.error('Failed to send eye tracking data to Lookit:', err);
-                }
-            }
-            
             // Initialize jsPsych
             const jsPsych = initJsPsych({
                 display_element: 'jspsych-target',
                 on_finish: function() {
                     console.log("Mirror experiment completed");
-                    
-                    // Send any remaining eye tracking data
-                    if (eyeTrackingData.length > 0) {
-                        sendEyeDataToLookit(eyeTrackingData);
-                    }
-                    
-                    // Send experiment completion message
-                    window.parent.postMessage({
-                        type: 'experimentComplete'
-                    }, originUrl);
                 }
             });
 
-            // Request and enter fullscreen
+            // request and enter fullscreen
             function enterFullscreen() {
                 if (document.documentElement.requestFullscreen) {
                     document.documentElement.requestFullscreen().catch(err => {
@@ -225,55 +169,6 @@
                     document.documentElement.webkitRequestFullscreen();
                 } else if (document.documentElement.msRequestFullscreen) {
                     document.documentElement.msRequestFullscreen();
-                }
-            }
-            
-            // Initialize WebGazer
-            function initializeWebGazer() {
-                // Check if WebGazer is already loaded
-                if (typeof webgazer !== 'undefined') {
-                    console.log('WebGazer found, initializing...');
-                    // Configure WebGazer for infant studies
-                    webgazer.params.showVideo = false;
-                    webgazer.params.showFaceOverlay = false;
-                    webgazer.params.showFaceFeedbackBox = false;
-                    webgazer.params.showGazeDot = false;  // Don't show the prediction dot
-                    
-                    // Use the most robust tracker possible
-                    webgazer.setTracker('TFFacemesh')
-                             .setRegression('ridge')  // Best balance of accuracy and performance
-                             .begin()
-                             .then(() => {
-                                 console.log('WebGazer initialized successfully');
-                                 
-                                 // Set up gaze listener to collect data
-                                 webgazer.setGazeListener((data, timestamp) => {
-                                     if (isRecordingEyeData && data && data.x && data.y) {
-                                         // Add timestamp if not provided
-                                         if (!timestamp) timestamp = Date.now();
-                                         
-                                         // Save the data
-                                         eyeTrackingData.push({
-                                             x: data.x,
-                                             y: data.y,
-                                             timestamp: timestamp
-                                         });
-                                         
-                                         eyeDataBufferSize++;
-                                         
-                                         // Send data when buffer gets large enough or enough time has passed
-                                         if (eyeDataBufferSize >= 600 || // Send every 600 samples (10 seconds at 60Hz)
-                                             (Date.now() - lastDataSentTime > 10000)) { // or at least every 10 seconds
-                                             sendEyeDataToLookit(eyeTrackingData);
-                                         }
-                                     }
-                                 });
-                             })
-                             .catch(err => {
-                                 console.error('WebGazer initialization error:', err);
-                             });
-                } else {
-                    console.error('WebGazer not loaded');
                 }
             }
             
@@ -289,7 +184,6 @@
                 .then(function(stream) {
                     // Store for later use
                     window.webcamStream = stream;
-                    console.log('Camera access granted');
                     return true;
                 })
                 .catch(function(err) {
@@ -307,34 +201,28 @@
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
                     <div style="padding: 20px;">
-                        <h2>Welcome to the Mirror Task with Eye Tracking</h2>
-                        <p>We'll use your webcam to show your child their reflection and track their eye movements.</p>
-                        <p>Please click 'Continue' to allow camera access and start the task.</p>
+                        <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%><img>
                     </div>
                 `,
                 choices: ['Continue'],
                 on_load: function() {
-                    // Request camera permission and initialize WebGazer
-                    requestCameraAccess().then(function(success) {
-                        if (success) {
-                            console.log('Requesting camera access successful, initializing WebGazer...');
-                            // Initialize WebGazer after camera access is granted
-                            setTimeout(initializeWebGazer, 1000);
-                        }
-                    });
+                    // Delay camera permission request by 5 seconds
+                    setTimeout(function() {
+                        requestCameraAccess().then(function(success) {
+                            console.log("Camera permission obtained:", success);
+                        });
+                    }, 5000);
                 },
                 on_finish: function() {
                     enterFullscreen();
                 }
             };
 
-            // Calibration with WebGazer integration
+            // Calibration
             const calibrationTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
                     <div style="width: 100vw; height: 100vh; position: relative; background-color: white;">
-                        <h2 style="text-align: center; margin-top: 20px;">Eye Tracking Calibration</h2>
-                        <p style="text-align: center;">Please follow the red dot with your eyes</p>
                         <div id="calibration-point" class="calibration-point" style="left: 50%; top: 50%;"></div>
                     </div>
                 `,
@@ -344,13 +232,13 @@
                     const point = document.getElementById('calibration-point');
                     const chime = document.getElementById('chime');
 
-                    // Positions for calibration (5 points)
+                    // move the dot and play sound
                     const positions = [
                         { left: '50%', top: '50%' },
-                        { left: '20%', top: '20%' },
-                        { left: '80%', top: '20%' },
-                        { left: '20%', top: '80%' },
-                        { left: '80%', top: '80%' }
+                        { left: '20%', top: '50%' },
+                        { left: '80%', top: '50%' },
+                        { left: '50%', top: '20%' },
+                        { left: '50%', top: '80%' }
                     ];
 
                     let currentPos = 0;
@@ -363,39 +251,18 @@
                             // Play sound
                             chime.currentTime = 0;
                             chime.play().catch(e => console.log("Audio error:", e));
-                            
-                            // WebGazer calibration for this point
-                            if (typeof webgazer !== 'undefined') {
-                                const pointX = parseFloat(positions[currentPos].left) / 100 * window.innerWidth;
-                                const pointY = parseFloat(positions[currentPos].top) / 100 * window.innerHeight;
-                                
-                                // Simulate multiple clicks at this position for better calibration
-                                for (let i = 0; i < 5; i++) {
-                                    setTimeout(() => {
-                                        try {
-                                            webgazer.recordScreenPosition(
-                                                pointX, 
-                                                pointY, 
-                                                'click'
-                                            );
-                                        } catch (e) {
-                                            console.error('Error during WebGazer calibration:', e);
-                                        }
-                                    }, i * 300); // Spread clicks over time
-                                }
-                            }
 
                             currentPos++;
                             setTimeout(moveDot, 2000);
                         }
                     }
 
-                    // Start the sequence
+                    // start the sequence
                     moveDot();
                 }
             };
 
-            // Mirror trial with eye tracking
+            // mirror trial - now tries to use the already obtained webcam stream
             const mirrorTrial = {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: `
@@ -403,14 +270,10 @@
                         <video id="webcam" autoplay playsinline></video>
                     </div>
                 `,
-                choices: [], // no predefined key choices (handle Esc manually)
+                choices: [], // no predefined key choices, (handle Esc manually)
                 trial_duration: 180000, // 3 minutes
                 on_load: function(data) {
-                    // Start recording eye tracking data
-                    isRecordingEyeData = true;
-                    lastDataSentTime = Date.now();
-                    
-                    // Manual event listener for E key
+                    // manual event listener for E key
                     const escapeHandler = function(e) {
                         if (e.key === 'e' || e.key === 'E') {
                             e.preventDefault(); // Prevent default behavior
@@ -418,26 +281,26 @@
                         }
                     };
                     
-                    // Event listener
+                    // event listener
                     document.addEventListener('keydown', escapeHandler);
                     
-                    // Store for later removal using a global variable
+                    // store for later removal using a global variable
                     window.mirrorEscapeHandler = escapeHandler;
                     
-                    // Timer
+                    // timer
                     const timerEl = document.getElementById('timer');
                     timerEl.style.display = 'block';
 
-                    // Song
+                    // song
                     const song = document.getElementById('song');
                     song.currentTime = 0;
                     song.loop = true;
                     song.play().catch(e => console.log("Audio error:", e));
 
-                    // Track if we've ended the trial
+                    // track if we've ended the trial
                     let trialEnded = false;
                     
-                    // Setup exit confirmation dialog
+                    // setup exit confirmation dialog
                     const exitConfirmation = document.getElementById('exit-confirmation');
                     const exitYes = document.getElementById('exit-yes');
                     const exitNo = document.getElementById('exit-no');
@@ -447,27 +310,13 @@
                         if (!trialEnded) {
                             trialEnded = true;
                             
-                            // Stop eye tracking
-                            isRecordingEyeData = false;
-                            
-                            // Send any remaining eye tracking data
-                            if (eyeTrackingData.length > 0) {
-                                sendEyeDataToLookit(eyeTrackingData);
-                            }
-                            
                             if (window.webcamStream) {
                                 window.webcamStream.getTracks().forEach(track => track.stop());
                             }
-                            
-                            // Stop WebGazer
-                            if (typeof webgazer !== 'undefined') {
-                                webgazer.end();
-                            }
-                            
                             song.pause();
                             timerEl.style.display = 'none';
                             
-                            // Close the window
+                            // close the window
                             try {
                                 window.close();
                             } catch (e) {
@@ -529,30 +378,15 @@
                                 timeLeft--;
                                 setTimeout(updateTimer, 1000);
                             } else if (!trialEnded) {
-                                // Force trial to end when timer reaches 0, but only if we haven't already ended it
+                                // force trial to end when timer reaches 0, but only if we haven't already ended it
                                 trialEnded = true;
-                                
-                                // Stop eye tracking
-                                isRecordingEyeData = false;
-                                
-                                // Send any remaining eye tracking data
-                                if (eyeTrackingData.length > 0) {
-                                    sendEyeDataToLookit(eyeTrackingData);
-                                }
-                                
                                 if (window.webcamStream) {
                                     window.webcamStream.getTracks().forEach(track => track.stop());
                                 }
-                                
-                                // Stop WebGazer
-                                if (typeof webgazer !== 'undefined') {
-                                    webgazer.end();
-                                }
-                                
                                 song.pause();
                                 timerEl.style.display = 'none';
                                 
-                                // End trial
+                                // end trial
                                 jsPsych.finishTrial();
                             }
                         };
@@ -561,9 +395,6 @@
                     }
                 },
                 on_finish: function() {
-                    // Stop recording eye tracking data
-                    isRecordingEyeData = false;
-                    
                     if (window.mirrorEscapeHandler) {
                         document.removeEventListener('keydown', window.mirrorEscapeHandler);
                     }
@@ -575,20 +406,10 @@
                     if (window.webcamStream) {
                         window.webcamStream.getTracks().forEach(track => track.stop());
                     }
-                    
-                    // Stop WebGazer
-                    if (typeof webgazer !== 'undefined') {
-                        webgazer.end();
-                    }
-                    
-                    // Send any remaining eye tracking data
-                    if (eyeTrackingData.length > 0) {
-                        sendEyeDataToLookit(eyeTrackingData);
-                    }
                 }
             };
 
-            // Final screen
+            // final screen
             const complete = {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `
