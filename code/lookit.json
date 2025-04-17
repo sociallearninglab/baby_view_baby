@@ -1,235 +1,176 @@
 function generateProtocol(child, pastSessions) {
-    return {
-        frames: {
-            'welcome': {
-                'kind': 'exp-lookit-text',
-                'blocks': [
-                    {
-                        'title': 'Welcome!'
-                    },
-                    {
-                        'text': 'Thank you for participating! Click next to continue'
-                    }
-                ],
-                'showPreviousButton': false
-            },
-            'video-config': {
-                'kind': 'exp-video-config',
-                'introText': "First, we'll make sure that you and your child are all set up."
-            },
-            
-            'start-recording': {
-                    'kind': 'exp-lookit-start-recording',
-                    'imageAnimation': 'spin',
-                    'displayFullscreen': true
-                },
-                
-                
-            'video-consent': {
-                'kind': 'exp-lookit-video-consent',
-                'template': 'consent_005',
-                'PIName': 'Research Team',
-                'institution': 'University',
-                'purpose': 'We are interested in understanding how babies recognize and respond to faces.',
-                'procedures': 'Your baby will see their own face through the webcam.',
-                'risk_statement': 'There are no risks beyond those in everyday life.',
-                'voluntary_participation': 'Participation is completely voluntary.',
-                'gdpr': false
-            },
-            
-            
-            "audio-check": {
-            "kind": "exp-lookit-instructions",
-            "blocks": [{
-                    "title": "Instructions (Your child does not need to be with you yet)"
-                },
-                {
-                    "title": "What's going to happen:",
-                    "listblocks": [{
-                            "text": "First, we'll make sure that you and your child are all set up."
-                        },
-                        {
-                            "text": "Then, we'll play some videos for your child to watch. The videos should take about 5-7 minutes."
-                        },
-                    ]
-                },
-                {
-                    "text": "Please turn the volume up so it's easy to hear but still comfortable.",
-                    "title": "First thing's first: checking your audio.",
-                    "mediaBlock": {
-                        "text": "You should hear 'Ready to go?'",
-                        "isVideo": false,
-                        "sources": [{
-                                "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.mp3",
-                                "type": "audio/mp3"
-                            },
-                            {
-                                "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.ogg",
-                                "type": "audio/ogg"
-                            }
-                        ],
-                        "mustPlay": true,
-                        "warningText": "Please try playing the sample audio."
-                    },
-                },
-            ],
-            "nextButtonText": "More instructions!"
-        },
-            
-            
-           'instruction-video': {
-                'kind': 'exp-lookit-instructions',
-                'blocks': [
-                    {
-                        'text': "At the beginning, your child will see exciting jumping dots, which we call the \"attention getter\", because it is intended to get your child's attention. Then, a live video recording of your child will appear on the screen. So your child will see themselves on the screen in real time, with some playful music in the background. This live video will play for 2 minutes. The attention getter and the live video together form the entire study. The study should take somewhere around 3 minutes. You can pause by pressing the letter P on your keyboard or stop the experiment by pressing the escape key.",
-                        'mediaBlock': {
-                            'isVideo': false,
-                            'sources': [
-                                {
-                                    'src': 'https://sociallearninglab.github.io/baby_view_baby/mp3/intro_voiceover.mp3',
-                                    'type': 'audio/mp3'
-                                },
-                                {
-                                    'src': 'https://sociallearninglab.github.io/baby_view_baby/mp3/intro_voiceover.ogg',
-                                    'type': 'audio/ogg'
-                                }
-                            ],
-                            'autoplay': true,
-                            'mustPlay': true,
-                            "warningText": "Please finish listening to the instructions."
-                        }
-                    }
-                ],
-                'showWebcam': false,
-                'doRecording': true,
-                'nextButtonText': 'Next'
-            },
-            
-            "instructions-3": {
-            "kind": "exp-lookit-instructions",
-            "blocks": [{
-                    "title": "Let's get set-up:"
-                },
-                {
-                    "text": "If possible, complete the study in a quiet room, away from windows, open doorways, toys, pets, siblings - interesting things to look at and reach for. For example, a home office is better than a busy kitchen (We understand if not all of this is possible!). \n\n",
-                    "image": {
-                        "alt": "No distractions",
-                        "src": "https://www.mit.edu/~kimscott/intermodal/img/distractions.png"
-                    }
-                },
-                {
-                    "text": "\n\n Please make sure your webcam is centered on the screen (this should be the case for most laptops). \n\n ",
-                    "image": {
-                        "alt": "Center camera",
-                        "src": "https://www.mit.edu/~kimscott/intermodal/img/centering.png"
-                    }
-                },
-                {
-                    "text": "\n\n If you are using two monitors, please turn one of them off. \n\n ",
-                    "image": {
-                        "alt": "Turn off monitor",
-                        "src": "https://www.mit.edu/~kimscott/intermodal/img/monitors.png"
-                    }
-                },
-                {
-                    "text": "\n\n Please put the laptop or computer close to the baby, but far enough so that they can't reach forward and touch anything. \n\n ",
-                },
+  return {
+      frames: {
+          'welcome': {
+              'kind': 'exp-lookit-text',
+              'blocks': [{
+                  'title': 'Welcome!'
+              }],
+              'showPreviousButton': false,
+              'nextButtonText': "Click here to start!"
+          },
+          'video-config': {
+              'kind': 'exp-video-config',
+              'introText': "First, we'll make sure that you and your child are all set up."
+          },
 
-                {
-                    "text": "\n\n Now, you can go ahead and put your child in a high chair and stand or sit behind them. \n\n",
-                    "image": {
-                        "alt": "Child in high chair",
-                        "src": "https://raw.githubusercontent.com/GalRaz/mcs_lookit_stims/master/baby_high_chair.jpg",
-                        "width": 50
-                    }
-                },
-                {
-                    "text": "\n\n If there is no high chair available, having your child on your lap is also ok. \n\n",
-                    "image": {
-                        "alt": "Child on lap",
-                        "src": "https://raw.githubusercontent.com/GalRaz/mcs_lookit_stims/master/baby_on_lap.jpg"
-                    }
-                },
-                {
-                    "title": "Some final pointers",
-                    "listblocks": [{
-                            "text": "<b> Don’t worry if your child isn’t looking at the screen the entire time!</b> There's no need to direct your child's attention towards the screen, since we want to see the decisions your child makes on their own! You can just try to keep their body oriented towards the screen so they can look if they want to. "
-                        },
-                        {
-                            "text": "Try to avoid peeking over your child's shoulder to see what they're doing. We want to make sure your child isn't distracted away from the screen, when they would've looked otherwise!"
-                        },
-                        {
-                            "text": "If you can do the entire study in one go, that's great. But you can also pause the study (press 'p') or stop the study (press esc-key) at any point."
-                        },
-                        {
-                            "text": "During the trials with the animated creatures, <b> press the spacebar when your child has looked away for approx. 3 seconds!"
-                        },
-                    ]
-                },
-                {
-                    "title": "Ready?",
-                    "listblocks": [{
-                        "text": "If your child is set up, go ahead and press the 'Check video!' button."
-                    }]
-                }
-            ],
-            "nextButtonText": "Check video!"
-            },
-            
-            
-            "webcam-display-check": {
-            "kind": "exp-lookit-webcam-display",
-            "blocks": [{
-                "title": "Last check: Does the video look good? Are your child's eyes visible?",
-                "listblocks": [{
-                    "text": "If so, you can go ahead and start the videos! The experiment will start once you press the button. See you in about 5-7 minutes!"
-                }, ]
-
-            }],
-            "nextButtonText": "Click to continue!",
-            "showPreviousButton": false,
-            "displayFullscreenOverride": true,
-            "startRecordingAutomatically": false
-        },
-            
-            'mirror-trial': { 
-                'kind': 'exp-lookit-instructions', 
-                'blocks': [ 
-                    { 
-                        'title': 'Click below to continue in another tab', 
-                        'text': '<a href="https://sociallearninglab.github.io/baby_view_baby/embedded-mirror.html" target="_blank">click here to continue!</a>' 
-                    }
-                ], 
-                'nextButtonDelay': 130000, // 2 minutes and 10 seconds 
-                'nextButtonText': 'Click here once you\'ve completed that', 
-                'doRecording': true,
-                'warningText': 'Please complete the mirror experiment in the new tab first. Make sure you have finished the entire 2-minute mirror experiment before clicking this button.'
-            },
+          'start-recording': {
+              'kind': 'exp-lookit-start-recording',
+              'imageAnimation': 'spin',
+              'displayFullscreen': true
+          },
 
 
-            'study-outro': {
-                'kind': 'exp-lookit-text',
-                'blocks': [
-                    {
-                        'title': "We're all done! Awesome job!",
-                        'text': "The last thing left to do is to fill out a short exit survey, where you'll be asked about to confirm some information and select your level of privacy. Once you submit that survey, there'll be a little debrief where we give more background information about the study and provide some links where you can find out more on your own."
-                    }
-                ],
-                'showWebcam': false,
-                'nextButtonText': 'Next'
-            },
-            
-            
-            
-            'stop-recording': {
-                'kind': 'exp-lookit-stop-recording',
-                'imageAnimation': 'spin',
-                'displayFullscreen': true,
-                'showProgressBar': true,
-                'waitForUploadMessage': 'Uploading video... Please wait.',
-            },
-            
-            
+          'video-consent': {
+              "gdpr": false,
+              'kind': 'exp-lookit-video-consent',
+              'template': 'consent_005',
+              'PIName': 'Hyowon Gweon',
+              'institution': 'Stanford University',
+              'PIContact': 'Hyowon Gweon (sll_lookit@stanford.edu)',
+              'purpose': 'One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the "the self" and how it may change throughout development. One possible indicator of self-awareness is to visually recognize oneself; people regularly spend time in front of mirrors to assess and adjust their appearance. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen.',
+              'risk_statement': 'There are no expected risks if you participate in the study.',
+              'voluntary_participation': 'Participation in this study is entirely optional, and you are free to exit at any time.',
+              'payment': 'There are no costs to participating. There are also no known risks associated with this study beyond those of everyday life. Although this study will not benefit your child directly, it will add to our understanding of how children think in general. You will get compensated if you meet the stated requirements.',
+              'datause': 'The researchers and study staff follow federal and state laws to protect your privacy, so all of your information and research records will be kept confidential. The only exception to these procedures for maintaining confidentiality is that we are required by law to report to the appropriate authorities suspicion of harm to your child or to others. More information on how we keep your videos and data private can be found at lookit.mit.edu/faq.',
+              'research_rights_statement': 'The Institutional Review Board (IRB) of Stanford University has approved this research study. If you have questions regarding your rights as a research subject you may contact the IRB office at 650-723-2480, or by mail at Research Compliance Office, Stanford University, 1705 El Camino Real, Palo Alto, CA 94306.'
+          },
+
+
+          "audio-check": {
+              "kind": "exp-lookit-instructions",
+              "blocks": [{
+                      "title": "Instructions (Your child does not need to be with you yet)"
+                  },
+                  {
+                      "title": "What's going to happen:",
+                      "listblocks": [{
+                              "text": "First, we'll make sure that you and your child are all set up."
+                          },
+                          {
+                              "text": "Then, your child will see and be able to watch themselves on the computer screen. This phase will last 3 minutes."
+                          },
+                      ]
+                  },
+                  {
+                      "text": "Please turn the volume up so it's easy to hear but still comfortable.",
+                      "title": "First things first: checking your audio!",
+                      "mediaBlock": {
+                          "text": "You should hear 'Ready to go?'",
+                          "isVideo": false,
+                          "sources": [{
+                                  "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.mp3",
+                                  "type": "audio/mp3"
+                              },
+                              {
+                                  "src": "https://s3.amazonaws.com/lookitcontents/exp-physics-final/audio/ready.ogg",
+                                  "type": "audio/ogg"
+                              }
+                          ],
+                          "mustPlay": true,
+                          "warningText": "Please try playing the sample audio."
+                      },
+                  },
+              ],
+              "nextButtonText": "More instructions!"
+          },
+
+
+
+          'instruction-video': {
+              'kind': 'exp-lookit-instructions',
+              'blocks': [{
+                  "title": "Play the video below to see what will happen during the study.",
+                  'mediaBlock': {
+                      'isVideo': true,
+                      'sources': [{
+                          'src': 'https://sociallearninglab.github.io/baby_view_baby/mp4/instructions.mp4',
+                          "type": "video/mp4"
+                      }],
+                      'autoplay': true,
+                      'mustPlay': true,
+                      "warningText": "Please finish watching the video."
+                  }
+              }],
+              'showWebcam': false,
+              'doRecording': true,
+              'nextButtonText': 'Next'
+          },
+
+          "instructions-3": {
+              "kind": "exp-lookit-instructions",
+              "blocks": [{
+                      "title": "All set up!"
+                  },
+                  {
+                      "title": "To do one last check of your webcam setup, press the 'Check video!' button!"
+                  }
+              ],
+              "nextButtonText": "Check video!"
+          },
+
+
+          "webcam-display-check": {
+              "kind": "exp-lookit-webcam-display",
+              "blocks": [{
+                  "title": "Last check: Does the video look good?",
+                  "blocks": [{
+                      "text": "If so, you can go ahead and press the 'Click to continue' button. See you in about 5 minutes!"
+                  }, ]
+
+              }],
+              "nextButtonText": "Click to continue!",
+              "showPreviousButton": false,
+              "startRecordingAutomatically": false
+          },
+
+
+
+          'mirror-trial': {
+              'kind': 'exp-lookit-instructions',
+              'blocks': [{
+                  'title': 'Please click below to open the mirror task in a new tab',
+                  'text': `
+                          <div style="text-align: center; margin: 30px 0;">
+                              
+                              <p style="margin: 30px 0;">
+                                  <a href="https://sociallearninglab.github.io/baby_view_baby/embedded-mirror.html" target="_blank">
+                                      <font size="6" color="green"><b>CLICK HERE TO START!</b></font>
+                                  </a>
+                              </p>
+                              
+                              <p>
+                                  <b>Important:</b> Please complete the mirror activity before continuing.
+                              </p>
+                          </div>
+                      `
+              }],
+              'nextButtonText': 'Click here after you\'ve completed the mirror activity',
+              'doRecording': true,
+          },
+
+
+          'study-outro': {
+              'kind': 'exp-lookit-text',
+              'blocks': [{
+                  'title': "We're all done! Awesome job!",
+                  'text': "The last thing left to do is to fill out a short exit survey, where you'll be asked about to confirm some information and select your level of privacy. Once you submit that survey, there'll be a little debrief where we give more background information about the study and provide some links where you can find out more on your own."
+              }],
+              'showWebcam': false,
+              'nextButtonText': 'Next'
+          },
+
+
+
+          'stop-recording': {
+              'kind': 'exp-lookit-stop-recording',
+              'imageAnimation': 'spin',
+              'displayFullscreen': true,
+              'showProgressBar': true,
+              'waitForUploadMessage': 'Uploading video... Please wait.',
+          },
+
+
 
 
           "mirror-questions": {
@@ -241,164 +182,354 @@ function generateProtocol(child, pastSessions) {
                 "type": "object",
                 "title": "Child Media and Mirror Experiences",
                 "properties": {
-                  "facetimeFrequency": {
-                    "enum": [
-                      "never",
-                      "less-than-monthly",
-                      "monthly",
-                      "2-3-times-monthly",
-                      "weekly",
-                      "several-times-weekly",
-                      "daily"
-                    ],
+                  "introText": {
                     "type": "string",
-                    "title": "How often does your child use FaceTime?",
-                    "required": true
+                    "title": "In this survey, we are interested in your child's prior experience seeing themselves on screens and in mirrors. In answering the questions below, we encourage you to give your responses as best you can recall (that is, your best estimate or guess)."
+                  },
+                  "mirrorFirstAge": {
+                    "type": "string",
+                    "title": "1-1. At which age did your child look in a mirror for the first time? Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
+                    "required": false
                   },
                   "mirrorFrequency": {
                     "enum": [
                       "never",
-                      "less-than-monthly",
-                      "monthly",
+                      "less-than-weekly",
                       "weekly",
                       "several-times-weekly",
                       "daily",
-                      "multiple-times-daily"
+                      "several-times-daily"
                     ],
                     "type": "string",
-                    "title": "How often does your child look in the mirror?",
-                    "required": true
+                    "title": "1-2. In the last MONTH or so, how often did your child look in a mirror?",
+                    "required": false,
+                    "default": "never"
                   },
-                  "mirrorFirstAge": {
+                  "mirrorResponse": {
+                    "type": "array",
+                    "title": "1-3. How does your child usually respond to seeing themselves in a mirror? (select all that apply)",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "smiles",
+                        "gets-excited",
+                        "laughs",
+                        "reaches-toward-mirror", 
+                        "doesnt-notice",
+                        "gets-upset",
+                        "other",
+                        "prefer-not-to-answer"
+                      ]
+                    },
+                    "required": false
+                  },
+                  "mirrorResponseOther": {
                     "type": "string",
-                    "title": "At approximately what age did your child first look in the mirror? (Please specify in months)",
-                    "required": true
+                    "title": "If you selected 'Other' above, please specify how your child responds to mirrors:",
+                    "required": false
                   },
-                  "hasSiblings": {
+                  "screenFirstAge": {
+                    "type": "string",
+                    "title": "2-1. At which age did your child first see themselves on a screen? (e.g., camera app on a smartphone, FaceTime, Zoom) Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
+                    "required": false
+                  },
+                  "screenFrequency": {
                     "enum": [
-                      "yes",
-                      "no"
+                      "never",
+                      "less-than-weekly",
+                      "weekly",
+                      "several-times-weekly",
+                      "daily",
+                      "several-times-daily"
                     ],
                     "type": "string",
-                    "title": "Does your child have any siblings?",
-                    "required": true
+                    "title": "2-2. In the last MONTH, how often did your child see themselves on a screen? (e.g., FaceTime on the phone or tablet, Zoom on a computer, ...)",
+                    "required": false,
+                    "default": "never"
                   },
-                  "siblingAges": {
+                  "screenResponse": {
+                    "type": "array",
+                    "title": "2-3. How does your child usually respond to seeing themselves on a screen? (select all that apply)",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "smiles",
+                        "gets-excited",
+                        "laughs",
+                        "reaches-toward-screen",
+                        "doesnt-notice",
+                        "gets-upset",
+                        "other",
+                        "prefer-not-to-answer"
+                      ]
+                    },
+                    "required": false
+                  },
+                  "screenResponseOther": {
                     "type": "string",
-                    "title": "If your child has siblings, what are their ages? (Please specify in years, separated by commas if multiple)"
+                    "title": "If you selected 'Other' above, please specify how your child responds to screens:",
+                    "required": false
+                  },
+                  "videoFirstAge": {
+                    "type": "string",
+                    "title": "3-1. At which age did your child first see a VIDEO of themselves? Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
+                    "required": false
+                  },
+                  "videoFrequency": {
+                    "enum": [
+                      "never",
+                      "less-than-weekly",
+                      "weekly",
+                      "several-times-weekly",
+                      "daily",
+                      "several-times-daily"
+                    ],
+                    "type": "string",
+                    "title": "3-2. In the last MONTH, how often did your child see a VIDEO of themselves? (e.g., on the phone, tablet, computer, video camera, ...)",
+                    "required": false,
+                    "default": "never"
+                  },
+                  "videoResponse": {
+                    "type": "array",
+                    "title": "3-3. How does your child usually respond to seeing a video of themselves? (select all that apply)",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "smiles",
+                        "gets-excited",
+                        "laughs",
+                        "reaches-toward-screen",
+                        "doesnt-notice",
+                        "gets-upset",
+                        "other"
+                      ]
+                    },
+                    "required": false
+                  },
+                  "videoResponseOther": {
+                    "type": "string",
+                    "title": "If you selected 'Other' above, please specify how your child responds to videos:",
+                    "required": false
+                  },
+                  "interruptions": {
+                    "type": "string",
+                    "title": "4-1. Did you and/or your child experience any interruptions during the study? (e.g., phone call, alerts or notifications appearing on the computer, person entering the room)",
+                    "required": false
+                  },
+                  "additionalComments": {
+                    "type": "string",
+                    "title": "4-2. Are there any other comments or feedback you would like to share?",
+                    "required": false
                   }
                 },
                 "dependencies": {
-                  "siblingAges": ["hasSiblings"]
+                  "mirrorResponseOther": ["mirrorResponse"],
+                  "screenResponseOther": ["screenResponse"],
+                  "videoResponseOther": ["videoResponse"]
                 }
               },
               "options": {
                 "fields": {
-                  "facetimeFrequency": {
-                    "type": "radio",
-                    "message": "Please select how frequently your child uses FaceTime",
-                    "sort": false,
-                    "removeDefaultNone": true,
-                    "optionLabels": [
-                      "Never",
-                      "Less than once a month",
-                      "Once a month",
-                      "2-3 times a month",
-                      "Once a week",
-                      "Several times a week",
-                      "Daily"
-                    ]
-                  },
-                  "mirrorFrequency": {
-                    "type": "radio",
-                    "message": "Please select how frequently your child looks in the mirror",
-                    "sort": false,
-                    "removeDefaultNone": true,
-                    "optionLabels": [
-                      "Never",
-                      "Less than once a month",
-                      "Once a month",
-                      "Once a week",
-                      "Several times a week",
-                      "Daily",
-                      "Multiple times daily"
-                    ]
+                  "introText": {
+                    "type": "object",
+                    "view": "bootstrap-display"
                   },
                   "mirrorFirstAge": {
                     "type": "text",
                     "placeholder": "e.g., 3",
                     "message": "Please provide an age in months"
                   },
-                  "hasSiblings": {
+                  "screenFirstAge": {
+                    "type": "text",
+                    "placeholder": "e.g., 3",
+                    "message": "Please provide an age in months"
+                  },
+                  "videoFirstAge": {
+                    "type": "text",
+                    "placeholder": "e.g., 3",
+                    "message": "Please provide an age in months"
+                  },
+                  "mirrorFrequency": {
                     "type": "radio",
-                    "message": "Please select whether your child has siblings",
+                    "message": "Please select how frequently your child looks in the mirror",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "noneLabel": "",
+                    "hideNone": true,
+                    "optionLabels": [
+                      "Please choose one",
+                      "Never",
+                      "Less than once a week",
+                      "Once a week",
+                      "Several times a week",
+                      "Once a day",
+                      "Several times a day"
+                    ]
+                  },
+                  "screenFrequency": {
+                    "type": "radio",
+                    "message": "Please select how frequently your child sees themselves on a screen",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "noneLabel": "",
+                    "hideNone": true,
+                    "optionLabels": [
+                      "Please choose one",
+                      "Never",
+                      "Less than once a week",
+                      "Once a week",
+                      "Several times a week",
+                      "Once a day",
+                      "Several times a day"
+                    ]
+                  },
+                  "videoFrequency": {
+                    "type": "radio",
+                    "message": "Please select how frequently your child sees videos of themselves",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "noneLabel": "",
+                    "hideNone": true,
+                    "optionLabels": [
+                      "Please choose one",
+                      "Never",
+                      "Less than once a week",
+                      "Once a week",
+                      "Several times a week",
+                      "Once a day",
+                      "Several times a day"
+                    ]
+                  },
+                  "mirrorResponse": {
+                    "type": "checkbox",
+                    "message": "Please select all responses that apply",
                     "sort": false,
                     "removeDefaultNone": true,
                     "optionLabels": [
-                      "Yes",
-                      "No"
+                      "Smiles",
+                      "Gets excited",
+                      "Laughs",
+                      "Reaches toward mirror",
+                      "Doesn't seem to care/notice",
+                      "Gets upset",
+                      "Other (please specify)",
+                      "Prefer not to answer"
                     ]
                   },
-                  "siblingAges": {
+                  "screenResponse": {
+                    "type": "checkbox",
+                    "message": "Please select all responses that apply",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "optionLabels": [
+                      "Smiles",
+                      "Gets excited",
+                      "Laughs",
+                      "Reaches toward screen",
+                      "Doesn't seem to care/notice",
+                      "Gets upset",
+                      "Other (please specify)",
+                      "Prefer not to answer"
+                    ]
+                  },
+                  "videoResponse": {
+                    "type": "checkbox",
+                    "message": "Please select all responses that apply",
+                    "sort": false,
+                    "removeDefaultNone": true,
+                    "optionLabels": [
+                      "Smiles",
+                      "Gets excited",
+                      "Laughs",
+                      "Reaches toward screen",
+                      "Doesn't seem to care/notice",
+                      "Gets upset",
+                      "Other (please specify)"
+                    ]
+                  },
+                  "mirrorResponseOther": {
                     "type": "text",
-                    "placeholder": "e.g., 3, 5, 7",
+                    "placeholder": "Please describe how your child responds",
                     "dependencies": {
-                      "hasSiblings": "yes"
+                      "mirrorResponse": "other"
                     }
+                  },
+                  "screenResponseOther": {
+                    "type": "text",
+                    "placeholder": "Please describe how your child responds",
+                    "dependencies": {
+                      "screenResponse": "other"
+                    }
+                  },
+                  "videoResponseOther": {
+                    "type": "text",
+                    "placeholder": "Please describe how your child responds",
+                    "dependencies": {
+                      "videoResponse": "other"
+                    }
+                  },
+                  "interruptions": {
+                    "type": "textarea",
+                    "placeholder": "Please describe any interruptions here",
+                    "rows": 3
+                  },
+                  "additionalComments": {
+                    "type": "textarea",
+                    "placeholder": "Please share any additional comments here",
+                    "rows": 3
                   }
                 },
                 "hideInitValidationError": true
               }
             }
           },
-          
-        
+
+
           "exit-survey": {
-            "kind": "exp-lookit-exit-survey",
-            "debriefing": {
-              "title": "Thank you for participating!",
-              "blocks": [
-                {
-                  "title": "",
-                  "text": "This research wouldn't be possible without awesome parents like you."
-                },
-                {
-                  "title": "Some Background Information:",
-                  "text": " "
-                },
-                {
-                  "title": "Additional Resources:",
-                  "text": "To learn more about this topic, you can check out some of the following works and resources:<br><a href='https://www.youtube.com/watch?v=y1KIVZw7Jxk' target='_blank'>TED Talk by Laura Schulz: The surprisingly logical minds of babies </a><br><a href='https://www.youtube.com/watch?v=muUbUspLgJ8' target='_blank'> Science, problem solving and play - Sara Baker</a>"
-                },
-                {
-                  "title": "Compensation:",
-                  "text": "To thank you for your participation, we'll be emailing you a $5 USD Amazon gift card - this should arrive in your inbox within the next week after we confirm your consent video and check that your child is in the age range for this study (If you don't hear from us by then, feel free to reach out!). If you participate again with another child in the age range, you'll receive one gift card per child."
-                },
-                {
-                  "title": "Questions or Concerns:",
-                  "text": "Please do not hesitate to contact Adani Abutto at aabutto@stanford.edu"
-                }
-              ]
-            }
+              "kind": "exp-lookit-exit-survey",
+              "debriefing": {
+                  "title": "Thank you for participating!",
+                  "blocks": [{
+                          "title": "",
+                          "text": "This research wouldn't be possible without awesome parents like you."
+                      },
+                      {
+                          "title": "Some Background Information:",
+                          "text": "One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the 'self' and how it may change throughout development. One possible indicator of self-awareness is to visually recognize oneself; people regularly spend time in front of mirrors to assess and adjust their appearance. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen."
+                      },
+                      {
+                          "title": "Additional Resources:",
+                          "text": "To learn more about this topic, you can check out some of the following works and resources:<br><a href='https://youtu.be/M2I0kwSua44?si=Sc_Q7Ex0bFOmh0KB' target='_blank'>A video about the Mirror Task</a><br><a href='https://www.youtube.com/watch?v=y1KIVZw7Jxk' target='_blank'>TED Talk by Laura Schulz: The surprisingly logical minds of babies</a>"
+                      },
+                      {
+                          "title": "Compensation:",
+                          "text": "To thank you for your participation, we'll be emailing you a $5 USD Amazon gift card - this should arrive in your inbox within the next week after we confirm your consent video and check that your child is in the age range for this study (If you don't hear from us by then, feel free to reach out!). If you participate again with another child in the age range, you'll receive one gift card per child."
+                      },
+                      {
+                          "title": "Questions or Concerns:",
+                          "text": "Please do not hesitate to contact Hyowon Gweon at sll_lookit@stanford.edu"
+                      }
+                  ]
+              }
           }
-                
-                
-                
-        },
-        sequence: [
-            'welcome',
-            'video-config',
-            'video-consent',
-            'audio-check',
-            'instruction-video',
-            'instructions-3',
-            'webcam-display-check',
-            'start-recording',
-            'mirror-trial',
-            'study-outro',
-            'stop-recording',
-            "mirror-questions",
-            'exit-survey'
-        ]
-    };
+
+
+
+      },
+      sequence: [
+          'welcome',
+          'video-config',
+          'video-consent',
+          'audio-check',
+          'instruction-video',
+          'instructions-3',
+          'webcam-display-check',
+          'start-recording',
+          'mirror-trial',
+          'stop-recording',
+          'study-outro',
+          "mirror-questions",
+          'exit-survey'
+      ]
+  };
 }
