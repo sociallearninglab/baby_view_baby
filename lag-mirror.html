@@ -86,7 +86,6 @@
     </div>
 
     <script>
-        
         const webcam = document.getElementById('webcam');
         const delayedCanvas = document.getElementById('delayed-canvas');
         const ctx = delayedCanvas.getContext('2d');
@@ -95,100 +94,97 @@
         const stopBtn = document.getElementById('stop-btn');
         const delaySlider = document.getElementById('delay-slider');
         const delayValue = document.getElementById('delay-value');
-        
-        
+
         let stream;
         let videoFrameBuffer = [];
-        let frameInterval;
+        // Removed frameInterval as requestAnimationFrame will be used with throttling
         let timerInterval;
         let startTime;
         let isRunning = false;
-        
-       
-        let DELAY_MS = 2000; 
+
+        let DELAY_MS = parseFloat(delaySlider.value) * 1000; // Initialize from slider
         const FPS = 30;
-        let FRAME_INTERVAL_MS = 1000 / FPS;
+        const FRAME_INTERVAL_MS = 1000 / FPS; // Renamed for clarity and made const
         let BUFFER_SIZE = Math.ceil(DELAY_MS / FRAME_INTERVAL_MS);
-        
-        
+
+        let lastCaptureTime = 0; // For throttling frame capture
+
         delaySlider.addEventListener('input', function() {
             DELAY_MS = parseFloat(this.value) * 1000;
             BUFFER_SIZE = Math.ceil(DELAY_MS / FRAME_INTERVAL_MS);
             delayValue.textContent = `${this.value}s`;
-            
-            
+
             if (isRunning) {
-                videoFrameBuffer = [];
+                videoFrameBuffer = []; // Clear buffer to adapt to new delay
             }
         });
-        
-        
+
         startBtn.addEventListener('click', startDelayedMirror);
         stopBtn.addEventListener('click', stopDelayedMirror);
-        
-       
+
         function setupCanvas() {
             delayedCanvas.width = window.innerWidth;
             delayedCanvas.height = window.innerHeight;
         }
-        
-       
+
         function captureVideoFrame() {
+            if (!isRunning) {
+                return; // Stop the loop if not running
+            }
+
+            // Always schedule the next frame to keep the loop going
+            requestAnimationFrame(captureVideoFrame);
+
+            const currentTime = Date.now();
+            // Throttle frame capture to match the desired FPS
+            if (currentTime - lastCaptureTime < FRAME_INTERVAL_MS) {
+                return; // Not enough time has passed, skip this cycle
+            }
+            lastCaptureTime = currentTime; // Update the last capture time
+
             if (webcam.readyState === webcam.HAVE_ENOUGH_DATA) {
-                
                 const frameCanvas = document.createElement('canvas');
-                frameCanvas.width = delayedCanvas.width;
+                frameCanvas.width = delayedCanvas.width; // Use actual canvas dimensions
                 frameCanvas.height = delayedCanvas.height;
                 const frameCtx = frameCanvas.getContext('2d');
-                
-                
+
+                // Draw current webcam image to the temporary canvas
+                // The webcam video element itself is not mirrored.
                 frameCtx.drawImage(webcam, 0, 0, frameCanvas.width, frameCanvas.height);
-                
-                
+
                 videoFrameBuffer.push({
-                    timestamp: Date.now(),
+                    timestamp: currentTime, // Store the capture time
                     canvas: frameCanvas
                 });
-                
-                
+
+                // If buffer has enough frames according to the delay, display the oldest
                 if (videoFrameBuffer.length > BUFFER_SIZE) {
-                    
                     const oldestFrame = videoFrameBuffer.shift();
-                    
+
                     ctx.clearRect(0, 0, delayedCanvas.width, delayedCanvas.height);
-                    
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(oldestFrame.canvas, -delayedCanvas.width, 0, delayedCanvas.width, delayedCanvas.height);
-                    ctx.restore();
+                    // Draw the oldest frame. The mirroring is handled by the CSS
+                    // 'transform: scaleX(-1);' on the #delayed-canvas element.
+                    ctx.drawImage(oldestFrame.canvas, 0, 0, delayedCanvas.width, delayedCanvas.height);
                 }
             }
-            
-            
-            if (isRunning) {
-                requestAnimationFrame(captureVideoFrame);
-            }
         }
-        
-        
+
         function updateTimer() {
             if (!isRunning) return;
-            
+
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
             timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
-        
-        
+
         function startDelayedMirror() {
             if (isRunning) return;
-            
-            setupCanvas();
-            
-            
+
+            setupCanvas(); // Ensure canvas is sized correctly
+
             navigator.mediaDevices.getUserMedia({
-                video: { 
+                video: {
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
                 },
@@ -197,16 +193,17 @@
             .then(function(mediaStream) {
                 stream = mediaStream;
                 webcam.srcObject = stream;
-                
-                
+
                 webcam.onloadedmetadata = function() {
                     isRunning = true;
                     startTime = Date.now();
-                    
-                    
+                    lastCaptureTime = 0; // Reset for throttling, allows first frame to capture immediately
+                    videoFrameBuffer = []; // Clear any stale frames
+
+                    // Start the capture loop
                     requestAnimationFrame(captureVideoFrame);
-                    
-                    
+
+                    clearInterval(timerInterval); // Clear any existing timer
                     timerInterval = setInterval(updateTimer, 1000);
                 };
             })
@@ -215,37 +212,30 @@
                 alert('Error accessing webcam. Please make sure you have granted camera permissions.');
             });
         }
-        
-        
+
         function stopDelayedMirror() {
             if (!isRunning) return;
-            
-            isRunning = false;
-            
-            
+
+            isRunning = false; // This will stop the captureVideoFrame loop
+
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
+                webcam.srcObject = null; // Release the webcam object
             }
-            
-            
+
             clearInterval(timerInterval);
-            
-            
-            ctx.clearRect(0, 0, delayedCanvas.width, delayedCanvas.height);
-            
-            
-            videoFrameBuffer = [];
+            ctx.clearRect(0, 0, delayedCanvas.width, delayedCanvas.height); // Clear the canvas
+            videoFrameBuffer = []; // Empty the buffer
+            timerEl.textContent = "00:00"; // Reset timer display
         }
-        
-        
+
         window.addEventListener('resize', function() {
-            if (isRunning) {
-                setupCanvas();
-            }
+            setupCanvas(); // Resize canvas
+            // If running, the buffer will adjust, no need to clear it here
+            // as new frames will be captured for the new size.
         });
-        
-        
+
+        // Initial setup
         setupCanvas();
+        delayValue.textContent = `${delaySlider.value}s`; // Initialize delay display
     </script>
-</body>
-</html>
