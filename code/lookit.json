@@ -25,9 +25,9 @@ function generateProtocol(child, pastSessions) {
               "gdpr": false,
               'kind': 'exp-lookit-video-consent',
               'template': 'consent_005',
-              'PIName': 'Hyowon Gweon',
+              'PIName': 'Adani Abutto',
               'institution': 'Stanford University',
-              'PIContact': 'Hyowon Gweon (sll_lookit@stanford.edu)',
+              'PIContact': 'Adani Abutto (sll_lookit@stanford.edu)',
               'purpose': 'One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the "the self" and how it may change throughout development. One possible indicator of self-awareness is to visually recognize oneself; people regularly spend time in front of mirrors to assess and adjust their appearance. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen.',
               'risk_statement': 'There are no expected risks if you participate in the study.',
               'voluntary_participation': 'Participation in this study is entirely optional, and you are free to exit at any time.',
@@ -100,10 +100,42 @@ function generateProtocol(child, pastSessions) {
           "instructions-3": {
               "kind": "exp-lookit-instructions",
               "blocks": [{
-                      "title": "All set up!"
+                      "title": "Let's get set up!"
                   },
                   {
-                      "title": "To do one last check of your webcam setup, press the 'Check video!' button!"
+                      "text": "\nPlease put the laptop or <b>computer close to the baby</b>, but far enough so that they can't reach forward and touch anything. \n\n If possible, complete the study in a <b>quiet room</b>, away from windows, open doorways, toys, pets, siblings - interesting things to look at and reach for. For example, a home office is better than a busy kitchen (We understand if not all of this is possible!) \n\n",
+                      "image": {
+                          "alt": "No distractions",
+                          "src": "https://www.mit.edu/~kimscott/intermodal/img/distractions.png"
+                      }
+                  },
+                  {
+                      "text": "\n\n Please make sure your <b>webcam is centered</b> on the screen (this should be the case for most laptops). \n\n ",
+                      "image": {
+                          "alt": "Center camera",
+                          "src": "https://www.mit.edu/~kimscott/intermodal/img/centering.png"
+                      }
+                  },
+                  {
+                      "text": "\n\n If you are using two monitors, please turn one of them off. \n\n ",
+                      "image": {
+                          "alt": "Turn off monitor",
+                          "src": "https://www.mit.edu/~kimscott/intermodal/img/monitors.png"
+                      }
+                  },
+                  {
+                      "text": "\n\n Now, you can go ahead and <b>put your child in a high chair and stand behind them</b>. \n\n",
+                      "image": {
+                          "alt": "Child in high chair",
+                          "src": "https://raw.githubusercontent.com/GalRaz/mcs_lookit_stims/master/baby_high_chair.jpg",
+                          "width": 50
+                      }
+                  },
+                  {
+                      "text": "\n\n <b>Don’t worry if your child isn’t looking at the screen the entire time!</b> There's no need to direct your child's attention towards the screen, since we want to see the decisions your child makes on their own! You can just try to keep their body oriented towards the screen so they can look if they want to.\n\n"
+                  },
+                  {
+                      "title": "Ready? If your child is set up, press the 'Check video!' button!"
                   }
               ],
               "nextButtonText": "Check video!"
@@ -112,52 +144,20 @@ function generateProtocol(child, pastSessions) {
 
           "webcam-display-check": {
               "kind": "exp-lookit-webcam-display",
-              "blocks": [{
-                  "title": "Last check: Does the video look good?",
-                  "blocks": [{
-                      "text": "If so, you can go ahead and press the 'Click to continue' button. See you in about 5 minutes!"
-                  }, ]
-
-              }],
-              "nextButtonText": "Click to continue!",
+              "nextButtonText": "Next",
               "showPreviousButton": false,
-              "startRecordingAutomatically": false
-          },
+              "displayFullscreenOverride": true,
+              "startRecordingAutomatically": true
+              },
 
 
 
-          'mirror-trial': {
-              'kind': 'exp-lookit-instructions',
-              'blocks': [{
-                  'title': 'Please click below to open the mirror task in a new tab',
-                  'text': `
-                          <div style="text-align: center; margin: 30px 0;">
-                              
-                              <p style="margin: 30px 0;">
-                                  <a href="https://sociallearninglab.github.io/baby_view_baby/embedded-mirror.html" target="_blank">
-                                      <font size="6" color="green"><b>CLICK HERE TO START!</b></font>
-                                  </a>
-                              </p>
-                              
-                              <p>
-                                  <b>Important:</b> Please complete the mirror activity before continuing.
-                              </p>
-                          </div>
-                      `
-              }],
-              'nextButtonText': 'Click here after you\'ve completed the mirror activity',
-              'doRecording': true,
-          },
-
-
-          'study-outro': {
-              'kind': 'exp-lookit-text',
-              'blocks': [{
-                  'title': "We're all done! Awesome job!",
-                  'text': "The last thing left to do is to fill out a short exit survey, where you'll be asked about to confirm some information and select your level of privacy. Once you submit that survey, there'll be a little debrief where we give more background information about the study and provide some links where you can find out more on your own."
-              }],
-              'showWebcam': false,
-              'nextButtonText': 'Next'
+          "mirror-trial": {
+              "kind": "exp-lookit-mirror",
+              "nextButtonText": "Continue",
+              "showPreviousButton": false,
+              "displayFullscreenOverride": true,
+              "songUrl": "https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3"
           },
 
 
@@ -189,7 +189,7 @@ function generateProtocol(child, pastSessions) {
                   "mirrorFirstAge": {
                     "type": "string",
                     "title": "1-1. At which age did your child look in a mirror for the first time? Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
-                    "required": false
+                    "required": true
                   },
                   "mirrorFrequency": {
                     "enum": [
@@ -202,7 +202,7 @@ function generateProtocol(child, pastSessions) {
                     ],
                     "type": "string",
                     "title": "1-2. In the last MONTH or so, how often did your child look in a mirror?",
-                    "required": false,
+                    "required": true,
                     "default": "never"
                   },
                   "mirrorResponse": {
@@ -221,7 +221,7 @@ function generateProtocol(child, pastSessions) {
                         "prefer-not-to-answer"
                       ]
                     },
-                    "required": false
+                    "required": true
                   },
                   "mirrorResponseOther": {
                     "type": "string",
@@ -231,7 +231,7 @@ function generateProtocol(child, pastSessions) {
                   "screenFirstAge": {
                     "type": "string",
                     "title": "2-1. At which age did your child first see themselves on a screen? (e.g., camera app on a smartphone, FaceTime, Zoom) Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
-                    "required": false
+                    "required": true
                   },
                   "screenFrequency": {
                     "enum": [
@@ -244,7 +244,7 @@ function generateProtocol(child, pastSessions) {
                     ],
                     "type": "string",
                     "title": "2-2. In the last MONTH, how often did your child see themselves on a screen? (e.g., FaceTime on the phone or tablet, Zoom on a computer, ...)",
-                    "required": false,
+                    "required": true,
                     "default": "never"
                   },
                   "screenResponse": {
@@ -263,7 +263,7 @@ function generateProtocol(child, pastSessions) {
                         "prefer-not-to-answer"
                       ]
                     },
-                    "required": false
+                    "required": true
                   },
                   "screenResponseOther": {
                     "type": "string",
@@ -273,7 +273,7 @@ function generateProtocol(child, pastSessions) {
                   "videoFirstAge": {
                     "type": "string",
                     "title": "3-1. At which age did your child first see a VIDEO of themselves? Please provide your answer in MONTHS of age (if you're not sure, please provide your best guess).",
-                    "required": false
+                    "required": true
                   },
                   "videoFrequency": {
                     "enum": [
@@ -286,7 +286,7 @@ function generateProtocol(child, pastSessions) {
                     ],
                     "type": "string",
                     "title": "3-2. In the last MONTH, how often did your child see a VIDEO of themselves? (e.g., on the phone, tablet, computer, video camera, ...)",
-                    "required": false,
+                    "required": true,
                     "default": "never"
                   },
                   "videoResponse": {
@@ -304,7 +304,7 @@ function generateProtocol(child, pastSessions) {
                         "other"
                       ]
                     },
-                    "required": false
+                    "required": true
                   },
                   "videoResponseOther": {
                     "type": "string",
@@ -507,7 +507,7 @@ function generateProtocol(child, pastSessions) {
                       },
                       {
                           "title": "Questions or Concerns:",
-                          "text": "Please do not hesitate to contact Hyowon Gweon at sll_lookit@stanford.edu"
+                          "text": "Please do not hesitate to contact Adani Abutto at aabutto@stanford.edu"
                       }
                   ]
               }
@@ -522,12 +522,9 @@ function generateProtocol(child, pastSessions) {
           'video-consent',
           'audio-check',
           'instruction-video',
-          'instructions-3',
-          'webcam-display-check',
           'start-recording',
           'mirror-trial',
           'stop-recording',
-          'study-outro',
           "mirror-questions",
           'exit-survey'
       ]
