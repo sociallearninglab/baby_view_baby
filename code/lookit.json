@@ -5,7 +5,7 @@ function generateProtocol(child, pastSessions) {
               'kind': 'exp-lookit-text',
               'blocks': [{
                   'title': 'Welcome!',
-                  'text': "In this study, you'll be asked to put a visible mark on your child's face (e.g., cheek)—you can use lipstick, rouge, face paint, or a small sticker/tape to safely leave a clear mark without bothering your child. Please make sure your child is ready before you participate!"
+                  'text': "In this study, you'll be asked to put a visible mark on your child's face (e.g., cheek)—you can use lipstick, rouge, face paint, or a small sticker/tape to safely leave a clear mark without bothering your child. Please make sure you have one of these tools handy before you continue!"
               }],
               'showPreviousButton': false,
               'nextButtonText': "Click here to start!"
@@ -35,6 +35,36 @@ function generateProtocol(child, pastSessions) {
               'payment': 'There are no costs to participating. There are also no known risks associated with this study beyond those of everyday life. Although this study will not benefit your child directly, it will add to our understanding of how children think in general. You will get compensated if you meet the stated requirements.',
               'datause': 'The researchers and study staff follow federal and state laws to protect your privacy, so all of your information and research records will be kept confidential. The only exception to these procedures for maintaining confidentiality is that we are required by law to report to the appropriate authorities suspicion of harm to your child or to others. More information on how we keep your videos and data private can be found at lookit.mit.edu/faq.',
               'research_rights_statement': 'The Institutional Review Board (IRB) of Stanford University has approved this research study. If you have questions regarding your rights as a research subject you may contact the IRB office at 650-723-2480, or by mail at Research Compliance Office, Stanford University, 1705 El Camino Real, Palo Alto, CA 94306.'
+          },
+          
+          "video-use-consent-survey": {
+              "kind": "exp-lookit-survey",
+              "showPreviousButton": true,
+              "nextButtonText": "Next",
+              "formSchema": {
+                  "schema": {
+                      "type": "object",
+                      "title": "VIDEO USE ON CHILDRENHELPINGSCIENCE",
+                      "properties": {
+                          "videoUseConsent": {
+                              "type": "string",
+                              "title": "We are planning a follow-up study where babies view other babies on the screen. Do you agree to have the video of your child be shown to other registered participants on ChildrenHelpingScience as part of this future study? If you agree, before any use of your video, we will contact you and send you your full footage so you can review it first. Importantly, your video will NOT be released to the public or made available for download in any way; it will only be used for the purpose of this upcoming research study.",
+                              "enum": ["yes", "no"],
+                              "required": true
+                          }
+                      }
+                  },
+                  "options": {
+                      "fields": {
+                          "videoUseConsent": {
+                              "type": "radio",
+                              "optionLabels": ["Yes, I agree", "No, I do not agree"],
+                              "message": "Please select one option to continue."
+                          }
+                      },
+                      "hideInitValidationError": true
+                  }
+              }
           },
 
           "audio-check": {
