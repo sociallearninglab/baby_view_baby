@@ -176,18 +176,21 @@ function generateProtocol(child, pastSessions) {
           'mirror-trial': {
             'kind': 'exp-lookit-instructions',
             'blocks': [{
-                'title': '',
+                'title': 'Please click below to start the mirror activity. Remember to make sure that your child\'s face is the only face on the screen!',
                 'text': `
-                    <div style="width:100%; height:80vh;">
-                        <iframe
-                            src="https://sociallearninglab.github.io/baby_view_baby/lag-mirror-study.html?condition=lag&participant_id=${child.id || 'unknown'}"
-                            allow="camera; microphone; autoplay"
-                            style="width:100%; height:100%; border:none;"
-                        ></iframe>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <p style="margin: 30px 0;">
+                            <a href="https://sociallearninglab.github.io/baby_view_baby/lag-mirror-study.html?condition=lag&participant_id=${child.id || 'unknown'}" target="_blank" style="display: inline-block; padding: 15px 30px; background-color: #4CAF50; color: white; text-decoration: none; font-size: 24px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer;">
+                                CLICK HERE TO START!
+                            </a>
+                        </p>
+                        <p>
+                            <b>Important:</b> Please complete the activity before continuing.
+                        </p>
                     </div>
                 `
             }],
-            'nextButtonText': 'Continue to next section',
+            'nextButtonText': 'Click here after you\'ve completed the activity',
             'showPreviousButton': false,
             'doRecording': true,
         },

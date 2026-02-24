@@ -207,6 +207,29 @@
             return result;
         }
 
+        // Fire-and-forget save to DataPipe (non-blocking)
+        function saveCheckpoint(suffix) {
+            try {
+                const filename = PARTICIPANT_ID + '_' + suffix + '.csv';
+                const csvData = jsPsych.data.get().csv();
+                fetch('https://pipe.jspsych.org/api/data/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        experimentID: DATAPIPE_EXPERIMENT_ID,
+                        filename: filename,
+                        data: csvData
+                    })
+                }).then(function(r) {
+                    console.log('Checkpoint saved:', filename, r.status);
+                }).catch(function(e) {
+                    console.warn('Checkpoint save failed (non-critical):', e);
+                });
+            } catch (e) {
+                console.warn('Checkpoint save error (non-critical):', e);
+            }
+        }
+
         // Push a JPEG blob into the ring buffer
         function ringPush(blob) {
             ringBuffer[ringHead] = blob;
@@ -280,6 +303,23 @@
             }
         });
 
+        // ─── TRIAL 0: Instructions ───────────────────────────────────────
+        const instructionTrial = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <div style="padding: 20px; background-color: white;">
+                    <img src="https://sociallearninglab.github.io/baby_view_baby/jspsych/final_jspsych_instructions.png" style="max-width:65%; height:auto; display:block; margin:0 auto;">
+                </div>
+            `,
+            choices: ['Continue'],
+            button_html: '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white;">%choice%</button>',
+            data: {
+                participant_id: PARTICIPANT_ID,
+                condition: CONDITION,
+                trial_type_custom: 'instructions'
+            }
+        };
+
         // ─── TRIAL 1: Camera Init ────────────────────────────────────────
         const cameraInitTrial = {
             type: jsPsychHtmlKeyboardResponse,
@@ -315,6 +355,7 @@
                             trial_end_time: Date.now(),
                             camera_error: false
                         });
+                        saveCheckpoint('after_camera');
                     };
                 })
                 .catch(function(err) {
@@ -326,6 +367,7 @@
                         trial_end_time: Date.now(),
                         camera_error: true
                     });
+                    saveCheckpoint('camera_error');
                 });
             },
             data: {
@@ -403,6 +445,7 @@
                 data.trial_duration = data.trial_end_time - data.trial_start_time;
                 data.calibration_positions = JSON.stringify(window._calibrationPositions || []);
                 data.buffer_ready_time = bufferReadyTime;
+                saveCheckpoint('after_calibration');
             }
         };
 
@@ -627,6 +670,7 @@
 
         // ─── BUILD TIMELINE ──────────────────────────────────────────────
         const timeline = [
+            instructionTrial,
             cameraInitTrial,
             calibrationTrial,
             mirrorTrial,
