@@ -334,7 +334,7 @@
                 </div>
             `,
             choices: ['Continue'],
-            button_html: '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white; margin-top: 15px;">%choice%</button>',
+            button_html: function(choice) { return '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white; margin-top:15px;">' + choice + '</button>'; },
             data: {
                 participant_id: PARTICIPANT_ID,
                 condition: CONDITION,
@@ -676,7 +676,7 @@
                 </div>
             `,
             choices: ['Continue'],
-            button_html: '<button class="jspsych-btn" style="font-size:24px; padding:15px 30px; background-color:#4CAF50; color:white;">%choice%</button>',
+            button_html: function(choice) { return '<button class="jspsych-btn" style="font-size:24px; padding:15px 30px; background-color:#4CAF50; color:white;">' + choice + '</button>'; },
             on_finish: function() {
                 // Signal to Lookit parent that the iframe trial is done
                 try {
