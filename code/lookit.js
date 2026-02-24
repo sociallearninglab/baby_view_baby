@@ -1,11 +1,28 @@
 function generateProtocol(child, pastSessions) {
   return {
       frames: {
+          'email-survey': {
+            'kind': 'exp-lookit-survey',
+            'formSchema': {
+                'schema': {
+                    'type': 'object',
+                    'title': 'Please enter your email address below. This will be used for sending you the $5 gift card.',
+                    'properties': {
+                        'Email': {
+                            'type': 'string',
+                            'title': 'Email',
+                            'required': true
+                        }
+                    }
+                }
+            },
+            'nextButtonText': 'Continue'
+        },
           'welcome': {
               'kind': 'exp-lookit-text',
               'blocks': [{
                   'title': 'Welcome!',
-                  'text': "In this study, you'll be asked to put a visible mark on your child's face (e.g., cheek)—you can use lipstick, rouge, face paint, or a small sticker/tape to safely leave a clear mark without bothering your child. Please make sure you have one of these tools handy before you continue!"
+                  'text': "<b>NOTE:</b> To avoid technical issues, please <b>use Safari or Chrome</b> when participating in this study!\n\n When you're ready, press 'next' to get started!"
               }],
               'showPreviousButton': false,
               'nextButtonText': "Click here to start!"
@@ -29,7 +46,7 @@ function generateProtocol(child, pastSessions) {
               'PIName': 'Hyowon Gweon',
               'institution': 'Stanford University',
               'PIContact': 'Hyowon Gweon (sll_lookit@stanford.edu)',
-              'purpose': 'One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the "the self" and how it may change throughout development. One possible indicator of self-awareness is to visually recognize oneself; people regularly spend time in front of mirrors to assess and adjust their appearance. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen.',
+              'purpose': 'One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the "self" and how it may change while growing up. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen, and how their responses compare to seeing other babies who aren’t them.',
               'risk_statement': 'There are no expected risks if you participate in the study.',
               'voluntary_participation': 'Participation in this study is entirely optional, and you are free to exit at any time.',
               'payment': 'There are no costs to participating. There are also no known risks associated with this study beyond those of everyday life. Although this study will not benefit your child directly, it will add to our understanding of how children think in general. You will get compensated if you meet the stated requirements.',
@@ -48,7 +65,7 @@ function generateProtocol(child, pastSessions) {
                       "properties": {
                           "videoUseConsent": {
                               "type": "string",
-                              "title": "We are planning a follow-up study where babies view other babies on the screen. Do you agree to have the video of your child be shown to other registered participants on ChildrenHelpingScience as part of this future study? If you agree, before any use of your video, we will contact you and send you your full footage so you can review it first. Importantly, your video will NOT be released to the public or made available for download in any way; it will only be used for the purpose of this upcoming research study.",
+                              "title": "We would love to use your video today in a followup study, in which babies view other babies on the screen. You can decide whether you want your video to be used in this way or not. If you agree, before any use of your video, we will contact you and send you your full footage so you can review it first. Importantly, your video will NOT be released to the public or made available for download in any way; it will only be used for the purpose of this upcoming research study.",
                               "enum": ["yes", "no"],
                               "required": true
                           }
@@ -58,7 +75,7 @@ function generateProtocol(child, pastSessions) {
                       "fields": {
                           "videoUseConsent": {
                               "type": "radio",
-                              "optionLabels": ["Yes, I agree", "No, I do not agree"],
+                              "optionLabels": ["Yes, you can use the videos in this way", "No, please do not use my videos for this"],
                               "message": "Please select one option to continue."
                           }
                       },
@@ -114,7 +131,7 @@ function generateProtocol(child, pastSessions) {
                   'mediaBlock': {
                       'isVideo': true,
                       'sources': [{
-                          'src': 'https://sociallearninglab.github.io/baby_view_baby/mp4/babyviewbaby_instructionvideo_ROUGE.mp4',
+                          'src': 'https://raw.githubusercontent.com/sociallearninglab/baby_view_other_baby/main/mp4/instructions.mp4',
                           "type": "video/mp4"
                       }],
                       'autoplay': true,
@@ -133,10 +150,7 @@ function generateProtocol(child, pastSessions) {
                       "title": "All set up!"
                   },
                   {
-                      "title": "Have you applied a visible mark on your child's right cheek, using lipstick, rouge, face paint, or a small sticker/tape?"
-                  },
-                  {
-                      "title": "If so, to do one last check of your webcam setup, press the 'Check video!' button!"
+                      "title": "To do one last check of your webcam setup, press the 'Check video!' button!"
                   }
               ],
               "nextButtonText": "Check video!"
@@ -160,27 +174,23 @@ function generateProtocol(child, pastSessions) {
 
 
           'mirror-trial': {
-              'kind': 'exp-lookit-instructions',
-              'blocks': [{
-                  'title': 'Please click below to open the self-viewing activity in a new tab. Remember to make sure that your childs face is the only face on the screen!',
-                  'text': `
-                          <div style="text-align: center; margin: 30px 0;">
-                              
-                              <p style="margin: 30px 0;">
-                                  <a href="https://sociallearninglab.github.io/baby_view_baby/embedded-mirror.html" target="_blank">
-                                      <font size="6" color="green"><b>CLICK HERE TO START!</b></font>
-                                  </a>
-                              </p>
-                              
-                              <p>
-                                  <b>Important:</b> Please complete the self-viewing activity before continuing.
-                              </p>
-                          </div>
-                      `
-              }],
-              'nextButtonText': 'Click here after you\'ve completed the self-viewing activity',
-              'doRecording': true,
-          },
+            'kind': 'exp-lookit-instructions',
+            'blocks': [{
+                'title': '',
+                'text': `
+                    <div style="width:100%; height:80vh;">
+                        <iframe
+                            src="https://sociallearninglab.github.io/baby_view_baby/lag-mirror-study.html?condition=lag&participant_id=${child.id || 'unknown'}"
+                            allow="camera; microphone; autoplay"
+                            style="width:100%; height:100%; border:none;"
+                        ></iframe>
+                    </div>
+                `
+            }],
+            'nextButtonText': 'Continue to next section',
+            'showPreviousButton': false,
+            'doRecording': true,
+        },
 
 
           'study-outro': {
@@ -528,7 +538,7 @@ function generateProtocol(child, pastSessions) {
                       },
                       {
                           "title": "Some Background Information:",
-                          "text": "One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the 'self' and how it may change throughout development. One possible indicator of self-awareness is to visually recognize oneself; people regularly spend time in front of mirrors to assess and adjust their appearance. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen."
+                          "text": "One of the first things an infant encounters is themselves, but we know only little about the nature and origins of the 'self' and how it may change throughout development. In this study, we aim to broadly explore how infants at the very beginning of their development react and behave when seeing themselves on a screen, and how their responses compare to seeing other babies who aren’t them."
                       },
                       {
                           "title": "Additional Resources:",
@@ -544,7 +554,18 @@ function generateProtocol(child, pastSessions) {
                       }
                   ]
               }
-          }
+          },
+          
+          
+          "mirror-self-view-trial": {
+            "kind": "exp-lookit-mirror",
+            "duration": 180,
+            "songUrl": "https://github.com/sociallearninglab/baby_view_other_baby/blob/main/mp3/song.mp3",
+            "instructionText": "Look at the silly baby!",
+            "nextButtonText": "Done",
+            "forceFullscreen": true,
+            "startRecordingAutomatically": true
+        }
 
 
 
@@ -554,7 +575,7 @@ function generateProtocol(child, pastSessions) {
           'video-config',
           'video-consent',
           'video-use-consent-survey',
-          'audio-check',
+          'audio-check',          
           'instruction-video',
           'instructions-3',
           'webcam-display-check',
@@ -563,7 +584,8 @@ function generateProtocol(child, pastSessions) {
           'stop-recording',
           'study-outro',
           "mirror-questions",
-          'exit-survey'
+          'exit-survey',
+          'email-survey'
       ]
   };
 }

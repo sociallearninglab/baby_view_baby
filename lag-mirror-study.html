@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lag Mirror Study</title>
+
+    <!-- Permissions policy for iframe camera access -->
+    <meta http-equiv="Permissions-Policy" content="camera=self">
+
+    <!-- Load jsPsych -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.js"></script>
+    <link href="https://sociallearninglab.github.io/baby_view_baby/jspsych/jspsych.css" rel="stylesheet" type="text/css">
+
+    <!-- Load plugins -->
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-button-response.js"></script>
+    <script src="https://sociallearninglab.github.io/baby_view_baby/jspsych/plugin-html-keyboard-response.js"></script>
+
+    <!-- DataPipe plugin for saving to OSF -->
+    <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe"></script>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: black !important;
+        }
+
+        #jspsych-target {
+            width: 100%;
+            height: 100%;
+            background-color: black !important;
+        }
+
+        .calibration-point {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 1s infinite;
+            z-index: 100;
+        }
+
+        @keyframes pulse {
+            0%   { transform: translate(-50%, -50%) scale(1); }
+            50%  { transform: translate(-50%, -50%) scale(1.5); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        #mirror-container {
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            margin: 0;
+            padding: 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+
+        #delayed-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #timer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 18px;
+            display: none;
+            z-index: 100;
+        }
+
+        #exit-confirmation {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 1000;
+            display: none;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #exit-confirmation h3 {
+            margin-top: 0;
+        }
+
+        #exit-confirmation .button-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        #exit-confirmation button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+
+        #exit-yes {
+            background-color: #f44336;
+            color: white;
+        }
+
+        #exit-no {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .jspsych-content {
+            max-width: 100% !important;
+        }
+
+        .jspsych-btn {
+            font-size: 18px !important;
+            padding: 12px 24px !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="jspsych-target"></div>
+    <div id="timer">03:00</div>
+    <div id="exit-confirmation">
+        <h3>Are you sure you want to exit?</h3>
+        <div class="button-container">
+            <button id="exit-yes">Yes</button>
+            <button id="exit-no">No</button>
+        </div>
+    </div>
+    <!-- Hidden video element for camera capture (never displayed) -->
+    <video id="hidden-webcam" autoplay playsinline style="display:none;"></video>
+    <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
+    <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3" loop></audio>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // ─── CONFIGURATION ───────────────────────────────────────────────
+        const params = new URLSearchParams(window.location.search);
+
+        // CONDITION: "lag" | "realtime" | "avatar" (future)
+        const CONDITION = params.get('condition') || 'lag';
+
+        // Participant ID from Lookit or random fallback
+        const PARTICIPANT_ID = params.get('participant_id') || generateId(10);
+
+        // Lag buffer settings
+        const DELAY_SECONDS = 10;
+        const FPS = 15;
+        const FRAME_INTERVAL_MS = 1000 / FPS;
+        const BUFFER_SIZE = DELAY_SECONDS * FPS; // 150 frames
+        const CAPTURE_WIDTH = 640;
+        const CAPTURE_HEIGHT = 480;
+        const JPEG_QUALITY = 0.7;
+
+        // Trial durations
+        const CALIBRATION_DURATION_MS = 10000;
+        const MIRROR_DURATION_MS = 180000; // 3 minutes
+
+        // DataPipe experiment ID
+        const DATAPIPE_EXPERIMENT_ID = 'aL1R7MWE4Syq';
+
+        // ─── GLOBALS ─────────────────────────────────────────────────────
+        let cameraStream = null;
+        let cameraError = false;
+
+        // Ring buffer for lag frames
+        const ringBuffer = new Array(BUFFER_SIZE);
+        let ringHead = 0;   // next write position
+        let ringCount = 0;  // how many frames stored
+        let bufferReady = false;
+        let bufferReadyTime = null;
+        let bufferAnimFrameId = null;
+        let lastCaptureTime = 0;
+
+        // Offscreen canvas for capturing frames
+        const captureCanvas = document.createElement('canvas');
+        captureCanvas.width = CAPTURE_WIDTH;
+        captureCanvas.height = CAPTURE_HEIGHT;
+        const captureCtx = captureCanvas.getContext('2d');
+
+        // ─── HELPERS ─────────────────────────────────────────────────────
+        function generateId(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Push a JPEG blob into the ring buffer
+        function ringPush(blob) {
+            ringBuffer[ringHead] = blob;
+            ringHead = (ringHead + 1) % BUFFER_SIZE;
+            if (ringCount < BUFFER_SIZE) {
+                ringCount++;
+            }
+        }
+
+        // Read the oldest frame from the ring buffer (FIFO)
+        function ringRead() {
+            if (ringCount < BUFFER_SIZE) return null; // buffer not full yet
+            // Oldest frame is at ringHead (since we just wrapped)
+            const blob = ringBuffer[ringHead];
+            return blob;
+        }
+
+        // Start filling the ring buffer in the background
+        function startBufferFill() {
+            const webcam = document.getElementById('hidden-webcam');
+
+            function captureLoop(timestamp) {
+                bufferAnimFrameId = requestAnimationFrame(captureLoop);
+
+                const now = performance.now();
+                if (now - lastCaptureTime < FRAME_INTERVAL_MS) return;
+                lastCaptureTime = now;
+
+                if (webcam.readyState < webcam.HAVE_ENOUGH_DATA) return;
+
+                // Draw current frame to offscreen canvas
+                captureCtx.drawImage(webcam, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+
+                // Convert to JPEG blob
+                captureCanvas.toBlob(function(blob) {
+                    if (blob) {
+                        ringPush(blob);
+                        if (!bufferReady && ringCount >= BUFFER_SIZE) {
+                            bufferReady = true;
+                            bufferReadyTime = Date.now();
+                            console.log('Lag buffer full and ready');
+                        }
+                    }
+                }, 'image/jpeg', JPEG_QUALITY);
+            }
+
+            bufferAnimFrameId = requestAnimationFrame(captureLoop);
+        }
+
+        function stopBufferFill() {
+            if (bufferAnimFrameId) {
+                cancelAnimationFrame(bufferAnimFrameId);
+                bufferAnimFrameId = null;
+            }
+        }
+
+        // ─── INITIALIZE jsPsych ──────────────────────────────────────────
+        const jsPsych = initJsPsych({
+            display_element: 'jspsych-target',
+            on_finish: function() {
+                console.log('Lag mirror study completed');
+                // Signal completion to Lookit parent
+                try {
+                    window.parent.postMessage({
+                        type: 'mirrorComplete',
+                        data: { message: 'Lag mirror study completed' }
+                    }, '*');
+                } catch (e) {
+                    console.error('Error sending postMessage to parent:', e);
+                }
+            }
+        });
+
+        // ─── TRIAL 1: Camera Init ────────────────────────────────────────
+        const cameraInitTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div style="display:flex; justify-content:center; align-items:center; height:80vh; color:white;">
+                    <div style="text-align:center;">
+                        <h2>Setting up camera...</h2>
+                        <p>Please allow camera access if prompted.</p>
+                    </div>
+                </div>
+            `,
+            choices: 'NO_KEYS',
+            trial_duration: null, // ends manually via on_load
+            on_load: function() {
+                const webcam = document.getElementById('hidden-webcam');
+
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                })
+                .then(function(stream) {
+                    cameraStream = stream;
+                    webcam.srcObject = stream;
+                    webcam.onloadedmetadata = function() {
+                        // Camera ready, advance trial
+                        jsPsych.finishTrial({
+                            trial_type_custom: 'camera_init',
+                            trial_start_time: Date.now(),
+                            trial_end_time: Date.now(),
+                            camera_error: false
+                        });
+                    };
+                })
+                .catch(function(err) {
+                    console.error('Camera init error:', err);
+                    cameraError = true;
+                    jsPsych.finishTrial({
+                        trial_type_custom: 'camera_init',
+                        trial_start_time: Date.now(),
+                        trial_end_time: Date.now(),
+                        camera_error: true
+                    });
+                });
+            },
+            data: {
+                participant_id: PARTICIPANT_ID,
+                condition: CONDITION,
+                trial_type_custom: 'camera_init'
+            }
+        };
+
+        // ─── TRIAL 2: Calibration ────────────────────────────────────────
+        const calibrationTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `
+                <div style="width:100vw; height:100vh; position:relative; background-color:white;">
+                    <div id="calibration-point" class="calibration-point" style="left:50%; top:50%;"></div>
+                </div>
+            `,
+            choices: 'NO_KEYS',
+            trial_duration: CALIBRATION_DURATION_MS,
+            data: {
+                participant_id: PARTICIPANT_ID,
+                condition: CONDITION,
+                trial_type_custom: 'calibration'
+            },
+            on_load: function() {
+                const trialStartTime = Date.now();
+                jsPsych.data.get().last(1).values()[0].trial_start_time = trialStartTime;
+
+                // Start filling the lag buffer during calibration
+                if (cameraStream && !cameraError) {
+                    startBufferFill();
+                }
+
+                const point = document.getElementById('calibration-point');
+                const chime = document.getElementById('chime');
+                const calibrationPositions = [];
+
+                const positions = [
+                    { left: '50%', top: '50%', x: 0.5, y: 0.5 },
+                    { left: '20%', top: '50%', x: 0.2, y: 0.5 },
+                    { left: '80%', top: '50%', x: 0.8, y: 0.5 },
+                    { left: '50%', top: '20%', x: 0.5, y: 0.2 },
+                    { left: '50%', top: '80%', x: 0.5, y: 0.8 }
+                ];
+
+                let currentPos = 0;
+
+                function moveDot() {
+                    if (currentPos < positions.length) {
+                        const pos = positions[currentPos];
+                        point.style.left = pos.left;
+                        point.style.top = pos.top;
+
+                        calibrationPositions.push({
+                            time: Date.now() - trialStartTime,
+                            x: pos.x,
+                            y: pos.y
+                        });
+
+                        chime.currentTime = 0;
+                        chime.play().catch(function(e) { console.log('Audio error:', e); });
+
+                        currentPos++;
+                        setTimeout(moveDot, 2000);
+                    }
+                }
+
+                moveDot();
+
+                // Store calibration positions for data saving
+                window._calibrationPositions = calibrationPositions;
+            },
+            on_finish: function(data) {
+                data.trial_end_time = Date.now();
+                data.trial_duration = data.trial_end_time - data.trial_start_time;
+                data.calibration_positions = JSON.stringify(window._calibrationPositions || []);
+                data.buffer_ready_time = bufferReadyTime;
+            }
+        };
+
+        // ─── TRIAL 3: Lag Mirror (or Realtime Mirror) ────────────────────
+        const mirrorTrial = {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function() {
+                if (CONDITION === 'lag') {
+                    return '<div id="mirror-container"><canvas id="delayed-canvas"></canvas></div>';
+                } else {
+                    // Realtime: show live video feed
+                    return '<div id="mirror-container"><video id="live-webcam" autoplay playsinline style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1);"></video></div>';
+                }
+            },
+            choices: [],
+            trial_duration: MIRROR_DURATION_MS,
+            data: {
+                participant_id: PARTICIPANT_ID,
+                condition: CONDITION,
+                trial_type_custom: 'lag_mirror'
+            },
+            on_load: function() {
+                const trialStartTime = Date.now();
+                jsPsych.data.get().last(1).values()[0].trial_start_time = trialStartTime;
+
+                let trialEnded = false;
+                let earlyExit = false;
+
+                // ── E key exit handler ──
+                const escapeHandler = function(e) {
+                    if (e.key === 'e' || e.key === 'E') {
+                        e.preventDefault();
+                        document.getElementById('exit-confirmation').style.display = 'block';
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+                window._mirrorEscapeHandler = escapeHandler;
+
+                // Exit confirmation buttons
+                const exitConfirmation = document.getElementById('exit-confirmation');
+                document.getElementById('exit-yes').addEventListener('click', function() {
+                    exitConfirmation.style.display = 'none';
+                    if (!trialEnded) {
+                        trialEnded = true;
+                        earlyExit = true;
+                        cleanup();
+                        jsPsych.finishTrial({
+                            early_exit: true
+                        });
+                    }
+                });
+                document.getElementById('exit-no').addEventListener('click', function() {
+                    exitConfirmation.style.display = 'none';
+                });
+
+                // ── Timer ──
+                const timerEl = document.getElementById('timer');
+                timerEl.style.display = 'block';
+                let timeLeft = Math.floor(MIRROR_DURATION_MS / 1000);
+
+                function updateTimer() {
+                    if (trialEnded) return;
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    timerEl.textContent = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        setTimeout(updateTimer, 1000);
+                    }
+                }
+                updateTimer();
+
+                // ── Background music ──
+                const song = document.getElementById('song');
+                song.currentTime = 0;
+                song.loop = true;
+                song.play().catch(function(e) { console.log('Audio error:', e); });
+
+                // ── Cleanup helper ──
+                function cleanup() {
+                    song.pause();
+                    timerEl.style.display = 'none';
+                    stopBufferFill();
+                    if (window._mirrorDisplayId) {
+                        cancelAnimationFrame(window._mirrorDisplayId);
+                        window._mirrorDisplayId = null;
+                    }
+                }
+
+                // ── Store early exit and cleanup ref for on_finish ──
+                window._mirrorCleanup = cleanup;
+                window._mirrorEarlyExit = false;
+
+                if (cameraError) {
+                    // Show error message if camera failed
+                    const container = document.getElementById('mirror-container');
+                    container.innerHTML = '<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;"><div style="text-align:center;color:white;"><h3>Camera not available</h3><p>The trial will continue without the mirror display.</p></div></div>';
+                    return;
+                }
+
+                if (CONDITION === 'lag') {
+                    // ── LAG MIRROR: display delayed frames from ring buffer ──
+                    const displayCanvas = document.getElementById('delayed-canvas');
+                    displayCanvas.width = window.innerWidth;
+                    displayCanvas.height = window.innerHeight;
+                    const displayCtx = displayCanvas.getContext('2d');
+
+                    function displayLoop() {
+                        if (trialEnded) return;
+                        window._mirrorDisplayId = requestAnimationFrame(displayLoop);
+
+                        const blob = ringRead();
+                        if (!blob) return;
+
+                        createImageBitmap(blob).then(function(bitmap) {
+                            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+
+                            // Scale to fill canvas while maintaining aspect ratio
+                            const canvasRatio = displayCanvas.width / displayCanvas.height;
+                            const bitmapRatio = bitmap.width / bitmap.height;
+                            let drawWidth, drawHeight, drawX, drawY;
+
+                            if (bitmapRatio > canvasRatio) {
+                                drawHeight = displayCanvas.height;
+                                drawWidth = drawHeight * bitmapRatio;
+                                drawX = (displayCanvas.width - drawWidth) / 2;
+                                drawY = 0;
+                            } else {
+                                drawWidth = displayCanvas.width;
+                                drawHeight = drawWidth / bitmapRatio;
+                                drawX = 0;
+                                drawY = (displayCanvas.height - drawHeight) / 2;
+                            }
+
+                            displayCtx.drawImage(bitmap, drawX, drawY, drawWidth, drawHeight);
+                            bitmap.close();
+                        }).catch(function() {
+                            // Ignore bitmap errors silently
+                        });
+                    }
+
+                    window._mirrorDisplayId = requestAnimationFrame(displayLoop);
+
+                    // Handle window resize
+                    window._mirrorResizeHandler = function() {
+                        displayCanvas.width = window.innerWidth;
+                        displayCanvas.height = window.innerHeight;
+                    };
+                    window.addEventListener('resize', window._mirrorResizeHandler);
+
+                } else {
+                    // ── REALTIME: just show the live camera feed ──
+                    stopBufferFill(); // Don't need the buffer
+                    const liveVideo = document.getElementById('live-webcam');
+                    if (cameraStream) {
+                        liveVideo.srcObject = cameraStream;
+                    }
+                }
+            },
+            on_finish: function(data) {
+                data.trial_end_time = Date.now();
+                data.trial_start_time = data.trial_start_time || Date.now();
+                data.trial_duration = data.trial_end_time - data.trial_start_time;
+                data.early_exit = data.early_exit || false;
+                data.buffer_ready_time = bufferReadyTime;
+                data.camera_error = cameraError;
+
+                // Cleanup
+                if (window._mirrorCleanup) window._mirrorCleanup();
+                if (window._mirrorEscapeHandler) {
+                    document.removeEventListener('keydown', window._mirrorEscapeHandler);
+                }
+                if (window._mirrorResizeHandler) {
+                    window.removeEventListener('resize', window._mirrorResizeHandler);
+                }
+
+                // Stop camera
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach(function(track) { track.stop(); });
+                }
+
+                document.getElementById('timer').style.display = 'none';
+                document.getElementById('song').pause();
+            }
+        };
+
+        // ─── TRIAL 4: Save Data via DataPipe ─────────────────────────────
+        const saveDataTrial = {
+            type: jsPsychPipe,
+            action: 'save',
+            experiment_id: DATAPIPE_EXPERIMENT_ID,
+            filename: PARTICIPANT_ID + '.csv',
+            data_string: function() {
+                return jsPsych.data.get().csv();
+            }
+        };
+
+        // ─── TRIAL 5: Completion Screen ──────────────────────────────────
+        const completeTrial = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `
+                <div style="text-align:center; padding:20px; color:white;">
+                    <h2 style="font-size:36px;">All done!</h2>
+                    <p style="font-size:24px;">Click Continue to proceed with the study.</p>
+                </div>
+            `,
+            choices: ['Continue'],
+            button_html: '<button class="jspsych-btn" style="font-size:24px; padding:15px 30px; background-color:#4CAF50; color:white;">%choice%</button>',
+            on_finish: function() {
+                // Signal to Lookit parent that the iframe trial is done
+                try {
+                    window.parent.postMessage({
+                        type: 'mirrorComplete',
+                        data: { message: 'Participant clicked Continue' }
+                    }, '*');
+                } catch (e) {
+                    console.error('Error sending postMessage:', e);
+                }
+            }
+        };
+
+        // ─── BUILD TIMELINE ──────────────────────────────────────────────
+        const timeline = [
+            cameraInitTrial,
+            calibrationTrial,
+            mirrorTrial,
+            saveDataTrial,
+            completeTrial
+        ];
+
+        // ─── RUN ─────────────────────────────────────────────────────────
+        jsPsych.run(timeline);
+    });
+    </script>
+</body>
+</html>
