@@ -307,12 +307,34 @@
         const instructionTrial = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <div style="padding: 20px; background-color: white;">
-                    <img src="https://sociallearninglab.github.io/baby_view_baby/jspsych/final_jspsych_instructions.png" style="max-width:65%; height:auto; display:block; margin:0 auto;">
+                <div style="padding: 30px 40px; background-color: white; max-width: 700px; margin: 0 auto; font-family: Arial, sans-serif; color: black;">
+                    <h2 style="text-align: center; margin-bottom: 30px;">Final Instructions</h2>
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="font-style: italic;"><em>In a moment</em>, you'll be asked to <u><b>approve the use of your camera!</b></u></h3>
+                        <div style="display: flex; align-items: flex-start; gap: 15px; margin-top: 15px;">
+                            <span style="font-size: 48px; font-weight: bold; line-height: 1;">1</span>
+                            <div>
+                                <p style="font-size: 18px; margin: 0;"><b>Please click <span style="color: purple;">"allow"</span></b> so that your child can see themselves on the screen!</p>
+                                <p style="font-size: 15px; color: #555; margin-top: 5px;">(Your camera will turn off automatically once the study has concluded)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: flex-start; gap: 15px;">
+                            <span style="font-size: 48px; font-weight: bold; line-height: 1;">2</span>
+                            <div>
+                                <p style="font-size: 18px; margin: 0;">Once you're ready, please <b>click <span style="color: purple;">"Continue"</span></b>!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="text-align: center; color: purple; font-size: 14px; margin-top: 20px;">
+                        During the experiment, you can press the 'E' key to exit early!<br>
+                        You will be asked to confirm your choice before exiting.
+                    </p>
                 </div>
             `,
             choices: ['Continue'],
-            button_html: '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white;">%choice%</button>',
+            button_html: '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white; margin-top: 15px;">%choice%</button>',
             data: {
                 participant_id: PARTICIPANT_ID,
                 condition: CONDITION,
