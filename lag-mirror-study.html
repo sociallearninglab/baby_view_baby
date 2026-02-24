@@ -303,17 +303,36 @@
             }
         });
 
+        // ─── Fullscreen helper ───────────────────────────────────────────
+        function enterFullscreen() {
+            var el = document.documentElement;
+            if (el.requestFullscreen) {
+                el.requestFullscreen().catch(function(e) { console.warn('Fullscreen error:', e); });
+            } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+            } else if (el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+            } else if (el.msRequestFullscreen) {
+                el.msRequestFullscreen();
+            }
+        }
+
         // ─── TRIAL 0: Instructions ───────────────────────────────────────
         const instructionTrial = {
-            type: jsPsychHtmlButtonResponse,
+            type: jsPsychHtmlKeyboardResponse,
             stimulus: `
-                <div style="padding: 20px; background-color: white; min-height: 100vh; display: flex; justify-content: center; align-items: center;">
+                <div style="padding: 20px; background-color: white; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                     <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%>
+                    <div id="continue-btn-container" style="margin-top: 20px; display: none;">
+                        <button id="continue-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer;">Continue</button>
+                    </div>
+                    <p id="camera-status" style="margin-top: 15px; font-size: 16px; color: #666;">Waiting for camera permission...</p>
                 </div>
             `,
-            choices: ['Continue'],
+            choices: 'NO_KEYS',
+            trial_duration: null,
             on_load: function() {
-                // Request camera permission immediately while they read instructions
+                // Request camera permission immediately
                 navigator.mediaDevices.getUserMedia({
                     video: {
                         width: { ideal: 1920 },
@@ -326,10 +345,28 @@
                     cameraStream = stream;
                     document.getElementById('hidden-webcam').srcObject = stream;
                     console.log('Camera permission obtained');
+
+                    // Show Continue button now that camera is ready
+                    var statusEl = document.getElementById('camera-status');
+                    if (statusEl) statusEl.textContent = 'Camera ready!';
+                    var btnContainer = document.getElementById('continue-btn-container');
+                    if (btnContainer) btnContainer.style.display = 'block';
                 })
                 .catch(function(err) {
                     console.error('Camera permission error:', err);
                     cameraError = true;
+
+                    // Still show Continue so they can proceed (camera init trial will handle fallback)
+                    var statusEl = document.getElementById('camera-status');
+                    if (statusEl) statusEl.textContent = 'Camera not available. You can still continue.';
+                    var btnContainer = document.getElementById('continue-btn-container');
+                    if (btnContainer) btnContainer.style.display = 'block';
+                });
+
+                // Continue button enters fullscreen and advances
+                document.getElementById('continue-btn').addEventListener('click', function() {
+                    enterFullscreen();
+                    jsPsych.finishTrial();
                 });
             },
             data: {
