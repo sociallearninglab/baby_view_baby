@@ -307,34 +307,31 @@
         const instructionTrial = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <div style="padding: 30px 40px; background-color: white; max-width: 700px; margin: 0 auto; font-family: Arial, sans-serif; color: black;">
-                    <h2 style="text-align: center; margin-bottom: 30px;">Final Instructions</h2>
-                    <div style="margin-bottom: 25px;">
-                        <h3 style="font-style: italic;"><em>In a moment</em>, you'll be asked to <u><b>approve the use of your camera!</b></u></h3>
-                        <div style="display: flex; align-items: flex-start; gap: 15px; margin-top: 15px;">
-                            <span style="font-size: 48px; font-weight: bold; line-height: 1;">1</span>
-                            <div>
-                                <p style="font-size: 18px; margin: 0;"><b>Please click <span style="color: purple;">"allow"</span></b> so that your child can see themselves on the screen!</p>
-                                <p style="font-size: 15px; color: #555; margin-top: 5px;">(Your camera will turn off automatically once the study has concluded)</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 25px;">
-                        <div style="display: flex; align-items: flex-start; gap: 15px;">
-                            <span style="font-size: 48px; font-weight: bold; line-height: 1;">2</span>
-                            <div>
-                                <p style="font-size: 18px; margin: 0;">Once you're ready, please <b>click <span style="color: purple;">"Continue"</span></b>!</p>
-                            </div>
-                        </div>
-                    </div>
-                    <p style="text-align: center; color: purple; font-size: 14px; margin-top: 20px;">
-                        During the experiment, you can press the 'E' key to exit early!<br>
-                        You will be asked to confirm your choice before exiting.
-                    </p>
+                <div style="padding: 20px;">
+                    <img src="jspsych/final_jspsych_instructions.png" width=65% height=65%>
                 </div>
             `,
             choices: ['Continue'],
-            button_html: function(choice) { return '<button class="jspsych-btn" style="font-size:20px; padding:12px 30px; background-color:#4CAF50; color:white; margin-top:15px;">' + choice + '</button>'; },
+            on_load: function() {
+                // Request camera permission immediately while they read instructions
+                navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                })
+                .then(function(stream) {
+                    cameraStream = stream;
+                    document.getElementById('hidden-webcam').srcObject = stream;
+                    console.log('Camera permission obtained');
+                })
+                .catch(function(err) {
+                    console.error('Camera permission error:', err);
+                    cameraError = true;
+                });
+            },
             data: {
                 participant_id: PARTICIPANT_ID,
                 condition: CONDITION,
@@ -342,7 +339,7 @@
             }
         };
 
-        // ─── TRIAL 1: Camera Init ────────────────────────────────────────
+        // ─── TRIAL 1: Camera Init (fallback if not ready from instructions) ─
         const cameraInitTrial = {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `
@@ -354,10 +351,22 @@
                 </div>
             `,
             choices: 'NO_KEYS',
-            trial_duration: null, // ends manually via on_load
+            trial_duration: null,
             on_load: function() {
-                const webcam = document.getElementById('hidden-webcam');
+                if (cameraStream && !cameraError) {
+                    // Camera already obtained during instructions
+                    jsPsych.finishTrial({
+                        trial_type_custom: 'camera_init',
+                        trial_start_time: Date.now(),
+                        trial_end_time: Date.now(),
+                        camera_error: false
+                    });
+                    saveCheckpoint('after_camera');
+                    return;
+                }
 
+                // Fallback: request camera now
+                var webcam = document.getElementById('hidden-webcam');
                 navigator.mediaDevices.getUserMedia({
                     video: {
                         width: { ideal: 1920 },
@@ -370,7 +379,6 @@
                     cameraStream = stream;
                     webcam.srcObject = stream;
                     webcam.onloadedmetadata = function() {
-                        // Camera ready, advance trial
                         jsPsych.finishTrial({
                             trial_type_custom: 'camera_init',
                             trial_start_time: Date.now(),
