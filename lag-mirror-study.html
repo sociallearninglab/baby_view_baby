@@ -163,6 +163,9 @@
         // Participant ID from Lookit or random fallback
         const PARTICIPANT_ID = params.get('participant_id') || generateId(10);
 
+        // Session timestamp for unique filenames (handles restarts)
+        const SESSION_TS = Date.now();
+
         // Lag buffer settings
         const DELAY_SECONDS = 10;
         const FPS = 15;
@@ -211,7 +214,7 @@
         // Fire-and-forget save to DataPipe (non-blocking)
         function saveCheckpoint(suffix) {
             try {
-                const filename = PARTICIPANT_ID + '_' + suffix + '.csv';
+                const filename = PARTICIPANT_ID + '_' + SESSION_TS + '_' + suffix + '.csv';
                 const csvData = jsPsych.data.get().csv();
                 fetch('https://pipe.jspsych.org/api/data/', {
                     method: 'POST',
@@ -701,12 +704,11 @@
         };
 
         // ─── TRIAL 4: Save Data via DataPipe ─────────────────────────────
-        const SESSION_TIMESTAMP = Date.now();
         const saveDataTrial = {
             type: jsPsychPipe,
             action: 'save',
             experiment_id: DATAPIPE_EXPERIMENT_ID,
-            filename: PARTICIPANT_ID + '_' + SESSION_TIMESTAMP + '.csv',
+            filename: PARTICIPANT_ID + '_' + SESSION_TS + '_final.csv',
             data_string: function() {
                 return jsPsych.data.get().csv();
             }
