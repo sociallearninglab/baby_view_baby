@@ -197,8 +197,14 @@
         let bufferAnimFrameId = null;
         let lastCaptureTime = 0;
 
-        // MediaPipe image segmenter for avatar condition
+        // MediaPipe models (loaded for all conditions)
         let imageSegmenter = null;
+        let faceDetector = null;
+
+        // Position tracking data (sampled at 2 Hz during mirror trial)
+        let trackingData = [];
+        let latestBodyCentroid = null;
+        let trackingIntervalId = null;
 
         // Offscreen canvas for capturing frames
         const captureCanvas = document.createElement('canvas');
@@ -216,16 +222,17 @@
             return result;
         }
 
-        // Initialize MediaPipe image segmenter for avatar condition
-        async function createImageSegmenter() {
+        // Initialize MediaPipe models (segmenter + face detector)
+        async function initMediaPipe() {
             try {
-                const { FilesetResolver, ImageSegmenter } = await import(
+                const { FilesetResolver, ImageSegmenter, FaceDetector } = await import(
                     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs'
                 );
 
                 const fileset = await FilesetResolver.forVisionTasks(
                     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'
                 );
+
                 imageSegmenter = await ImageSegmenter.createFromOptions(fileset, {
                     baseOptions: {
                         modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
@@ -236,8 +243,17 @@
                     outputConfidenceMasks: true
                 });
                 console.log('ImageSegmenter ready');
+
+                faceDetector = await FaceDetector.createFromOptions(fileset, {
+                    baseOptions: {
+                        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite',
+                        delegate: 'GPU'
+                    },
+                    runningMode: 'VIDEO'
+                });
+                console.log('FaceDetector ready');
             } catch (e) {
-                console.error('ImageSegmenter init failed:', e);
+                console.error('MediaPipe init failed:', e);
             }
         }
 
@@ -380,10 +396,8 @@
                     document.getElementById('hidden-webcam').srcObject = stream;
                     console.log('Camera permission obtained');
 
-                    // Pre-load segmenter model for avatar condition
-                    if (CONDITION === 'avatar') {
-                        createImageSegmenter();
-                    }
+                    // Pre-load MediaPipe models (segmenter + face detector)
+                    initMediaPipe();
 
                     // Show Continue button now that camera is ready
                     var statusEl = document.getElementById('camera-status');
@@ -559,12 +573,7 @@
         const mirrorTrial = {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: function() {
-                if (CONDITION === 'lag' || CONDITION === 'avatar') {
-                    return '<div id="mirror-container"><canvas id="delayed-canvas"></canvas></div>';
-                } else {
-                    // Realtime: show live video feed
-                    return '<div id="mirror-container"><video id="live-webcam" autoplay playsinline style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1);"></video></div>';
-                }
+                return '<div id="mirror-container"><canvas id="delayed-canvas"></canvas></div>';
             },
             choices: [],
             trial_duration: MIRROR_DURATION_MS,
@@ -639,7 +648,48 @@
                         cancelAnimationFrame(window._mirrorDisplayId);
                         window._mirrorDisplayId = null;
                     }
+                    if (trackingIntervalId) {
+                        clearInterval(trackingIntervalId);
+                        trackingIntervalId = null;
+                    }
                 }
+
+                // ── Position tracking (2 Hz for all conditions) ──
+                const trackingWebcam = document.getElementById('hidden-webcam');
+                trackingIntervalId = setInterval(function() {
+                    if (trialEnded) return;
+                    if (trackingWebcam.readyState < trackingWebcam.HAVE_ENOUGH_DATA) return;
+
+                    const sample = { t: Date.now() - window._mirrorStartTime };
+                    const vw = trackingWebcam.videoWidth;
+                    const vh = trackingWebcam.videoHeight;
+                    if (!vw || !vh) return;
+
+                    // Face detection
+                    if (faceDetector) {
+                        try {
+                            const faceResult = faceDetector.detectForVideo(trackingWebcam, performance.now());
+                            if (faceResult.detections && faceResult.detections.length > 0) {
+                                const det = faceResult.detections[0];
+                                const bb = det.boundingBox;
+                                sample.face = {
+                                    x: bb.originX / vw,
+                                    y: bb.originY / vh,
+                                    w: bb.width / vw,
+                                    h: bb.height / vh
+                                };
+                            } else {
+                                sample.face = null;
+                            }
+                        } catch (e) {
+                            sample.face = null;
+                        }
+                    }
+
+                    // Body centroid (computed in render loop for all conditions)
+                    sample.body = latestBodyCentroid;
+                    trackingData.push(sample);
+                }, 500); // 2 Hz
 
                 // ── Store early exit and cleanup ref for on_finish ──
                 window._mirrorCleanup = cleanup;
@@ -652,80 +702,112 @@
                     return;
                 }
 
-                if (CONDITION === 'lag') {
-                    // ── LAG MIRROR: display delayed frames from ring buffer ──
-                    const displayCanvas = document.getElementById('delayed-canvas');
-                    displayCanvas.width = window.innerWidth;
-                    displayCanvas.height = window.innerHeight;
-                    const displayCtx = displayCanvas.getContext('2d');
+                // ── Common setup for all conditions: canvas + offscreen buffer ──
+                const displayCanvas = document.getElementById('delayed-canvas');
+                displayCanvas.width = window.innerWidth;
+                displayCanvas.height = window.innerHeight;
+                const displayCtx = displayCanvas.getContext('2d');
 
-                    function displayLoop() {
+                const webcam = document.getElementById('hidden-webcam');
+                const segCanvas = document.createElement('canvas');
+                const segCtx = segCanvas.getContext('2d');
+                let lastRenderTime = 0;
+
+                // Helper: draw offscreen canvas to display canvas with cover scaling
+                function drawToDisplay(srcWidth, srcHeight) {
+                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                    const canvasRatio = displayCanvas.width / displayCanvas.height;
+                    const frameRatio = srcWidth / srcHeight;
+                    let drawWidth, drawHeight, drawX, drawY;
+                    if (frameRatio > canvasRatio) {
+                        drawHeight = displayCanvas.height;
+                        drawWidth = drawHeight * frameRatio;
+                        drawX = (displayCanvas.width - drawWidth) / 2;
+                        drawY = 0;
+                    } else {
+                        drawWidth = displayCanvas.width;
+                        drawHeight = drawWidth / frameRatio;
+                        drawX = 0;
+                        drawY = (displayCanvas.height - drawHeight) / 2;
+                    }
+                    displayCtx.drawImage(segCanvas, drawX, drawY, drawWidth, drawHeight);
+                }
+
+                // Helper: replace background with grey using confidence mask, compute centroid
+                function applyGreyBackground(frameData, mask, w, h) {
+                    const data = frameData.data;
+                    let sumX = 0, sumY = 0, personCount = 0;
+                    for (let i = 0; i < mask.length; i++) {
+                        const conf = mask[i]; // 0.0 = background, 1.0 = person
+                        const off = i * 4;
+                        // Smooth blend: original pixels where person, grey where background
+                        data[off]     = Math.round(data[off]     * conf + 128 * (1 - conf));
+                        data[off + 1] = Math.round(data[off + 1] * conf + 128 * (1 - conf));
+                        data[off + 2] = Math.round(data[off + 2] * conf + 128 * (1 - conf));
+                        if (conf > 0.5) {
+                            sumX += (i % w);
+                            sumY += Math.floor(i / w);
+                            personCount++;
+                        }
+                    }
+                    latestBodyCentroid = personCount > 0
+                        ? { cx: sumX / personCount / w, cy: sumY / personCount / h }
+                        : null;
+                }
+
+                if (CONDITION === 'lag') {
+                    // ── LAG: delayed frames with grey background ──
+
+                    function lagLoop(timestamp) {
                         if (trialEnded) return;
-                        window._mirrorDisplayId = requestAnimationFrame(displayLoop);
+                        window._mirrorDisplayId = requestAnimationFrame(lagLoop);
+
+                        if (timestamp - lastRenderTime < FRAME_INTERVAL_MS) return;
+                        lastRenderTime = timestamp;
 
                         const blob = ringRead();
                         if (!blob) return;
 
                         createImageBitmap(blob).then(function(bitmap) {
-                            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-
-                            // Scale to fill canvas while maintaining aspect ratio
-                            const canvasRatio = displayCanvas.width / displayCanvas.height;
-                            const bitmapRatio = bitmap.width / bitmap.height;
-                            let drawWidth, drawHeight, drawX, drawY;
-
-                            if (bitmapRatio > canvasRatio) {
-                                drawHeight = displayCanvas.height;
-                                drawWidth = drawHeight * bitmapRatio;
-                                drawX = (displayCanvas.width - drawWidth) / 2;
-                                drawY = 0;
-                            } else {
-                                drawWidth = displayCanvas.width;
-                                drawHeight = drawWidth / bitmapRatio;
-                                drawX = 0;
-                                drawY = (displayCanvas.height - drawHeight) / 2;
+                            const bw = bitmap.width;
+                            const bh = bitmap.height;
+                            if (segCanvas.width !== bw || segCanvas.height !== bh) {
+                                segCanvas.width = bw;
+                                segCanvas.height = bh;
                             }
-
-                            displayCtx.drawImage(bitmap, drawX, drawY, drawWidth, drawHeight);
+                            segCtx.drawImage(bitmap, 0, 0, bw, bh);
                             bitmap.close();
-                        }).catch(function() {
-                            // Ignore bitmap errors silently
-                        });
+
+                            if (imageSegmenter) {
+                                try {
+                                    const result = imageSegmenter.segmentForVideo(segCanvas, performance.now());
+                                    if (result.confidenceMasks && result.confidenceMasks.length > 0) {
+                                        const mask = result.confidenceMasks[0].getAsFloat32Array();
+                                        const frameData = segCtx.getImageData(0, 0, bw, bh);
+                                        applyGreyBackground(frameData, mask, bw, bh);
+                                        segCtx.putImageData(frameData, 0, 0);
+                                    }
+                                    result.close();
+                                } catch (e) {
+                                    // Segmenter error — show raw frame
+                                }
+                            }
+                            drawToDisplay(segCanvas.width, segCanvas.height);
+                        }).catch(function() {});
                     }
 
-                    window._mirrorDisplayId = requestAnimationFrame(displayLoop);
-
-                    // Handle window resize
-                    window._mirrorResizeHandler = function() {
-                        displayCanvas.width = window.innerWidth;
-                        displayCanvas.height = window.innerHeight;
-                    };
-                    window.addEventListener('resize', window._mirrorResizeHandler);
+                    window._mirrorDisplayId = requestAnimationFrame(lagLoop);
 
                 } else if (CONDITION === 'avatar') {
-                    // ── AVATAR: real-time silhouette via MediaPipe segmentation ──
-                    stopBufferFill(); // Don't need the lag buffer
-
-                    const displayCanvas = document.getElementById('delayed-canvas');
-                    displayCanvas.width = window.innerWidth;
-                    displayCanvas.height = window.innerHeight;
-                    const displayCtx = displayCanvas.getContext('2d');
-
-                    const webcam = document.getElementById('hidden-webcam');
-
-                    // Offscreen canvas at webcam resolution for pixel manipulation
-                    const segCanvas = document.createElement('canvas');
-                    const segCtx = segCanvas.getContext('2d');
-
-                    let lastAvatarTime = 0;
+                    // ── AVATAR: purple silhouette on grey ──
+                    stopBufferFill();
 
                     function avatarLoop(timestamp) {
                         if (trialEnded) return;
                         window._mirrorDisplayId = requestAnimationFrame(avatarLoop);
 
-                        // Throttle to ~15 FPS
-                        if (timestamp - lastAvatarTime < FRAME_INTERVAL_MS) return;
-                        lastAvatarTime = timestamp;
+                        if (timestamp - lastRenderTime < FRAME_INTERVAL_MS) return;
+                        lastRenderTime = timestamp;
 
                         if (!imageSegmenter || webcam.readyState < webcam.HAVE_ENOUGH_DATA) return;
 
@@ -733,7 +815,6 @@
                         const vh = webcam.videoHeight;
                         if (!vw || !vh) return;
 
-                        // Resize offscreen canvas if needed
                         if (segCanvas.width !== vw || segCanvas.height !== vh) {
                             segCanvas.width = vw;
                             segCanvas.height = vh;
@@ -745,59 +826,83 @@
                             const pixels = new ImageData(vw, vh);
                             const data = pixels.data;
 
-                            // Purple (100, 50, 200) for person, grey (128, 128, 128) for background
-                            // Blend smoothly using confidence value for anti-aliased edges
+                            let sumX = 0, sumY = 0, personCount = 0;
                             for (let i = 0; i < mask.length; i++) {
                                 const off = i * 4;
-                                const conf = mask[i]; // 0.0 = background, 1.0 = person
-                                data[off]     = Math.round(128 + conf * (100 - 128)); // R
-                                data[off + 1] = Math.round(128 + conf * (50 - 128));  // G
-                                data[off + 2] = Math.round(128 + conf * (200 - 128)); // B
+                                const conf = mask[i];
+                                data[off]     = Math.round(128 + conf * (100 - 128));
+                                data[off + 1] = Math.round(128 + conf * (50 - 128));
+                                data[off + 2] = Math.round(128 + conf * (200 - 128));
                                 data[off + 3] = 255;
+                                if (conf > 0.5) {
+                                    sumX += (i % vw);
+                                    sumY += Math.floor(i / vw);
+                                    personCount++;
+                                }
                             }
+                            latestBodyCentroid = personCount > 0
+                                ? { cx: sumX / personCount / vw, cy: sumY / personCount / vh }
+                                : null;
 
                             segCtx.putImageData(pixels, 0, 0);
-
-                            // Scale to fill display canvas (cover)
-                            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-                            const canvasRatio = displayCanvas.width / displayCanvas.height;
-                            const frameRatio = vw / vh;
-                            let drawWidth, drawHeight, drawX, drawY;
-
-                            if (frameRatio > canvasRatio) {
-                                drawHeight = displayCanvas.height;
-                                drawWidth = drawHeight * frameRatio;
-                                drawX = (displayCanvas.width - drawWidth) / 2;
-                                drawY = 0;
-                            } else {
-                                drawWidth = displayCanvas.width;
-                                drawHeight = drawWidth / frameRatio;
-                                drawX = 0;
-                                drawY = (displayCanvas.height - drawHeight) / 2;
-                            }
-
-                            displayCtx.drawImage(segCanvas, drawX, drawY, drawWidth, drawHeight);
+                            drawToDisplay(vw, vh);
                             result.close();
                         });
                     }
 
                     window._mirrorDisplayId = requestAnimationFrame(avatarLoop);
 
-                    // Handle window resize
-                    window._mirrorResizeHandler = function() {
-                        displayCanvas.width = window.innerWidth;
-                        displayCanvas.height = window.innerHeight;
-                    };
-                    window.addEventListener('resize', window._mirrorResizeHandler);
-
                 } else {
-                    // ── REALTIME: just show the live camera feed ──
-                    stopBufferFill(); // Don't need the buffer
-                    const liveVideo = document.getElementById('live-webcam');
-                    if (cameraStream) {
-                        liveVideo.srcObject = cameraStream;
+                    // ── REALTIME: live camera with grey background ──
+                    stopBufferFill();
+
+                    function realtimeLoop(timestamp) {
+                        if (trialEnded) return;
+                        window._mirrorDisplayId = requestAnimationFrame(realtimeLoop);
+
+                        if (timestamp - lastRenderTime < FRAME_INTERVAL_MS) return;
+                        lastRenderTime = timestamp;
+
+                        if (webcam.readyState < webcam.HAVE_ENOUGH_DATA) return;
+
+                        const vw = webcam.videoWidth;
+                        const vh = webcam.videoHeight;
+                        if (!vw || !vh) return;
+
+                        if (segCanvas.width !== vw || segCanvas.height !== vh) {
+                            segCanvas.width = vw;
+                            segCanvas.height = vh;
+                        }
+
+                        // Draw current webcam frame to offscreen canvas
+                        segCtx.drawImage(webcam, 0, 0, vw, vh);
+
+                        if (imageSegmenter) {
+                            try {
+                                const result = imageSegmenter.segmentForVideo(webcam, performance.now());
+                                if (result.confidenceMasks && result.confidenceMasks.length > 0) {
+                                    const mask = result.confidenceMasks[0].getAsFloat32Array();
+                                    const frameData = segCtx.getImageData(0, 0, vw, vh);
+                                    applyGreyBackground(frameData, mask, vw, vh);
+                                    segCtx.putImageData(frameData, 0, 0);
+                                }
+                                result.close();
+                            } catch (e) {
+                                // Segmenter error — show raw frame
+                            }
+                        }
+                        drawToDisplay(vw, vh);
                     }
+
+                    window._mirrorDisplayId = requestAnimationFrame(realtimeLoop);
                 }
+
+                // Handle window resize (all conditions)
+                window._mirrorResizeHandler = function() {
+                    displayCanvas.width = window.innerWidth;
+                    displayCanvas.height = window.innerHeight;
+                };
+                window.addEventListener('resize', window._mirrorResizeHandler);
             },
             on_finish: function(data) {
                 data.trial_start_time = window._mirrorStartTime;
@@ -806,6 +911,7 @@
                 data.early_exit = data.early_exit || false;
                 data.buffer_ready_time = bufferReadyTime;
                 data.camera_error = cameraError;
+                data.tracking_data = JSON.stringify(trackingData);
 
                 // Cleanup
                 if (window._mirrorCleanup) window._mirrorCleanup();
