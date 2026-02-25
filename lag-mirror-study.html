@@ -158,7 +158,9 @@
         const params = new URLSearchParams(window.location.search);
 
         // CONDITION: "lag" | "realtime" | "avatar"
-        const CONDITION = params.get('condition') || 'avatar';
+        // URL param overrides; otherwise randomly assign
+        const CONDITIONS = ['lag', 'realtime', 'avatar'];
+        const CONDITION = params.get('condition') || CONDITIONS[Math.floor(Math.random() * CONDITIONS.length)];
 
         // Participant ID from Lookit or random fallback
         const PARTICIPANT_ID = params.get('participant_id') || generateId(10);
