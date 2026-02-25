@@ -180,7 +180,7 @@ function generateProtocol(child, pastSessions) {
                 'text': `
                     <div style="text-align: center; margin: 30px 0;">
                         <p style="margin: 30px 0;">
-                            <a href="https://sociallearninglab.github.io/baby_view_baby/lag-mirror-study.html?condition=lag&participant_id=${child.id || 'unknown'}" target="_blank" style="display: inline-block; padding: 15px 30px; background-color: #4CAF50; color: white; text-decoration: none; font-size: 24px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer;">
+                            <a href="https://sociallearninglab.github.io/baby_view_baby/lag-mirror-study.html?condition=lag&participant_id=${child.globalId || child.id || 'unknown'}" target="_blank" style="display: inline-block; padding: 15px 30px; background-color: #4CAF50; color: white; text-decoration: none; font-size: 24px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer;">
                                 CLICK HERE TO START!
                             </a>
                         </p>

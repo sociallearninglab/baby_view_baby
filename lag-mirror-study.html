@@ -149,6 +149,7 @@
     <video id="hidden-webcam" autoplay playsinline style="display:none;"></video>
     <audio id="chime" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/chime.mp3"></audio>
     <audio id="song" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/song.mp3" loop></audio>
+    <audio id="alldone" preload="auto" src="https://github.com/sociallearninglab/baby_view_baby/raw/refs/heads/main/mp3/alldone.mp3"></audio>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -176,7 +177,7 @@
         const MIRROR_DURATION_MS = 180000; // 3 minutes
 
         // DataPipe experiment ID
-        const DATAPIPE_EXPERIMENT_ID = 'aL1R7MWE4Syq';
+        const DATAPIPE_EXPERIMENT_ID = 'b784ndSK1KEE';
 
         // ─── GLOBALS ─────────────────────────────────────────────────────
         let cameraStream = null;
@@ -460,8 +461,7 @@
                 trial_type_custom: 'calibration'
             },
             on_load: function() {
-                const trialStartTime = Date.now();
-                jsPsych.data.get().last(1).values()[0].trial_start_time = trialStartTime;
+                window._calibrationStartTime = Date.now();
 
                 // Start filling the lag buffer during calibration
                 if (cameraStream && !cameraError) {
@@ -489,7 +489,7 @@
                         point.style.top = pos.top;
 
                         calibrationPositions.push({
-                            time: Date.now() - trialStartTime,
+                            time: Date.now() - window._calibrationStartTime,
                             x: pos.x,
                             y: pos.y
                         });
@@ -508,6 +508,7 @@
                 window._calibrationPositions = calibrationPositions;
             },
             on_finish: function(data) {
+                data.trial_start_time = window._calibrationStartTime;
                 data.trial_end_time = Date.now();
                 data.trial_duration = data.trial_end_time - data.trial_start_time;
                 data.calibration_positions = JSON.stringify(window._calibrationPositions || []);
@@ -535,8 +536,7 @@
                 trial_type_custom: 'lag_mirror'
             },
             on_load: function() {
-                const trialStartTime = Date.now();
-                jsPsych.data.get().last(1).values()[0].trial_start_time = trialStartTime;
+                window._mirrorStartTime = Date.now();
 
                 let trialEnded = false;
                 let earlyExit = false;
@@ -674,8 +674,8 @@
                 }
             },
             on_finish: function(data) {
+                data.trial_start_time = window._mirrorStartTime;
                 data.trial_end_time = Date.now();
-                data.trial_start_time = data.trial_start_time || Date.now();
                 data.trial_duration = data.trial_end_time - data.trial_start_time;
                 data.early_exit = data.early_exit || false;
                 data.buffer_ready_time = bufferReadyTime;
@@ -701,11 +701,12 @@
         };
 
         // ─── TRIAL 4: Save Data via DataPipe ─────────────────────────────
+        const SESSION_TIMESTAMP = Date.now();
         const saveDataTrial = {
             type: jsPsychPipe,
             action: 'save',
             experiment_id: DATAPIPE_EXPERIMENT_ID,
-            filename: PARTICIPANT_ID + '.csv',
+            filename: PARTICIPANT_ID + '_' + SESSION_TIMESTAMP + '.csv',
             data_string: function() {
                 return jsPsych.data.get().csv();
             }
@@ -715,22 +716,24 @@
         const completeTrial = {
             type: jsPsychHtmlButtonResponse,
             stimulus: `
-                <div style="text-align:center; padding:20px; color:white;">
-                    <h2 style="font-size:36px;">All done!</h2>
-                    <p style="font-size:24px;">Click Continue to proceed with the study.</p>
+                <div style="text-align:center; padding:40px; background-color:white; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                    <h2 style="font-size:36px; color:black;">All done!</h2>
+                    <p style="font-size:24px; color:black;">Please close this tab and return to the study.</p>
                 </div>
             `,
-            choices: ['Continue'],
+            choices: ['Close and return to study'],
             button_html: function(choice) { return '<button class="jspsych-btn" style="font-size:24px; padding:15px 30px; background-color:#4CAF50; color:white;">' + choice + '</button>'; },
+            on_load: function() {
+                // Play the "all done" audio
+                var alldone = document.getElementById('alldone');
+                alldone.play().catch(function(e) { console.log('Alldone audio error:', e); });
+            },
             on_finish: function() {
-                // Signal to Lookit parent that the iframe trial is done
+                // Try to close the tab (works if opened via window.open or target="_blank")
                 try {
-                    window.parent.postMessage({
-                        type: 'mirrorComplete',
-                        data: { message: 'Participant clicked Continue' }
-                    }, '*');
+                    window.close();
                 } catch (e) {
-                    console.error('Error sending postMessage:', e);
+                    console.log('Could not close window:', e);
                 }
             }
         };
