@@ -53,7 +53,7 @@
         #mirror-container {
             width: 100vw;
             height: 100vh;
-            background-color: black;
+            background-color: #808080;
             margin: 0;
             padding: 0;
             position: fixed;
@@ -157,8 +157,8 @@
         // ─── CONFIGURATION ───────────────────────────────────────────────
         const params = new URLSearchParams(window.location.search);
 
-        // CONDITION: "lag" | "realtime" | "avatar" (future)
-        const CONDITION = params.get('condition') || 'lag';
+        // CONDITION: "lag" | "realtime" | "avatar"
+        const CONDITION = params.get('condition') || 'avatar';
 
         // Participant ID from Lookit or random fallback
         const PARTICIPANT_ID = params.get('participant_id') || generateId(10);
@@ -195,6 +195,9 @@
         let bufferAnimFrameId = null;
         let lastCaptureTime = 0;
 
+        // MediaPipe image segmenter for avatar condition
+        let imageSegmenter = null;
+
         // Offscreen canvas for capturing frames
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = CAPTURE_WIDTH;
@@ -209,6 +212,31 @@
                 result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return result;
+        }
+
+        // Initialize MediaPipe image segmenter for avatar condition
+        async function createImageSegmenter() {
+            try {
+                const { FilesetResolver, ImageSegmenter } = await import(
+                    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/vision_bundle.mjs'
+                );
+
+                const fileset = await FilesetResolver.forVisionTasks(
+                    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'
+                );
+                imageSegmenter = await ImageSegmenter.createFromOptions(fileset, {
+                    baseOptions: {
+                        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
+                        delegate: 'GPU'
+                    },
+                    runningMode: 'VIDEO',
+                    outputCategoryMask: false,
+                    outputConfidenceMasks: true
+                });
+                console.log('ImageSegmenter ready');
+            } catch (e) {
+                console.error('ImageSegmenter init failed:', e);
+            }
         }
 
         // Fire-and-forget save to DataPipe (non-blocking)
@@ -349,6 +377,11 @@
                     cameraStream = stream;
                     document.getElementById('hidden-webcam').srcObject = stream;
                     console.log('Camera permission obtained');
+
+                    // Pre-load segmenter model for avatar condition
+                    if (CONDITION === 'avatar') {
+                        createImageSegmenter();
+                    }
 
                     // Show Continue button now that camera is ready
                     var statusEl = document.getElementById('camera-status');
@@ -524,7 +557,7 @@
         const mirrorTrial = {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: function() {
-                if (CONDITION === 'lag') {
+                if (CONDITION === 'lag' || CONDITION === 'avatar') {
                     return '<div id="mirror-container"><canvas id="delayed-canvas"></canvas></div>';
                 } else {
                     // Realtime: show live video feed
@@ -659,6 +692,94 @@
                     }
 
                     window._mirrorDisplayId = requestAnimationFrame(displayLoop);
+
+                    // Handle window resize
+                    window._mirrorResizeHandler = function() {
+                        displayCanvas.width = window.innerWidth;
+                        displayCanvas.height = window.innerHeight;
+                    };
+                    window.addEventListener('resize', window._mirrorResizeHandler);
+
+                } else if (CONDITION === 'avatar') {
+                    // ── AVATAR: real-time silhouette via MediaPipe segmentation ──
+                    stopBufferFill(); // Don't need the lag buffer
+
+                    const displayCanvas = document.getElementById('delayed-canvas');
+                    displayCanvas.width = window.innerWidth;
+                    displayCanvas.height = window.innerHeight;
+                    const displayCtx = displayCanvas.getContext('2d');
+
+                    const webcam = document.getElementById('hidden-webcam');
+
+                    // Offscreen canvas at webcam resolution for pixel manipulation
+                    const segCanvas = document.createElement('canvas');
+                    const segCtx = segCanvas.getContext('2d');
+
+                    let lastAvatarTime = 0;
+
+                    function avatarLoop(timestamp) {
+                        if (trialEnded) return;
+                        window._mirrorDisplayId = requestAnimationFrame(avatarLoop);
+
+                        // Throttle to ~15 FPS
+                        if (timestamp - lastAvatarTime < FRAME_INTERVAL_MS) return;
+                        lastAvatarTime = timestamp;
+
+                        if (!imageSegmenter || webcam.readyState < webcam.HAVE_ENOUGH_DATA) return;
+
+                        const vw = webcam.videoWidth;
+                        const vh = webcam.videoHeight;
+                        if (!vw || !vh) return;
+
+                        // Resize offscreen canvas if needed
+                        if (segCanvas.width !== vw || segCanvas.height !== vh) {
+                            segCanvas.width = vw;
+                            segCanvas.height = vh;
+                        }
+
+                        imageSegmenter.segmentForVideo(webcam, performance.now(), function(result) {
+                            if (!result.confidenceMasks || !result.confidenceMasks.length) return;
+                            const mask = result.confidenceMasks[0].getAsFloat32Array();
+                            const pixels = new ImageData(vw, vh);
+                            const data = pixels.data;
+
+                            // Purple (100, 50, 200) for person, grey (128, 128, 128) for background
+                            // Blend smoothly using confidence value for anti-aliased edges
+                            for (let i = 0; i < mask.length; i++) {
+                                const off = i * 4;
+                                const conf = mask[i]; // 0.0 = background, 1.0 = person
+                                data[off]     = Math.round(128 + conf * (100 - 128)); // R
+                                data[off + 1] = Math.round(128 + conf * (50 - 128));  // G
+                                data[off + 2] = Math.round(128 + conf * (200 - 128)); // B
+                                data[off + 3] = 255;
+                            }
+
+                            segCtx.putImageData(pixels, 0, 0);
+
+                            // Scale to fill display canvas (cover)
+                            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                            const canvasRatio = displayCanvas.width / displayCanvas.height;
+                            const frameRatio = vw / vh;
+                            let drawWidth, drawHeight, drawX, drawY;
+
+                            if (frameRatio > canvasRatio) {
+                                drawHeight = displayCanvas.height;
+                                drawWidth = drawHeight * frameRatio;
+                                drawX = (displayCanvas.width - drawWidth) / 2;
+                                drawY = 0;
+                            } else {
+                                drawWidth = displayCanvas.width;
+                                drawHeight = drawWidth / frameRatio;
+                                drawX = 0;
+                                drawY = (displayCanvas.height - drawHeight) / 2;
+                            }
+
+                            displayCtx.drawImage(segCanvas, drawX, drawY, drawWidth, drawHeight);
+                            result.close();
+                        });
+                    }
+
+                    window._mirrorDisplayId = requestAnimationFrame(avatarLoop);
 
                     // Handle window resize
                     window._mirrorResizeHandler = function() {
