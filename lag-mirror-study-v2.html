@@ -170,10 +170,10 @@
         const SESSION_TS = Date.now();
 
         // Lag buffer settings
-        const DELAY_SECONDS = 6.5;
+        const DELAY_SECONDS = 5.5;
         const FPS = 15;
         const FRAME_INTERVAL_MS = 1000 / FPS;
-        const BUFFER_SIZE = Math.round(DELAY_SECONDS * FPS); // 98 frames (~6.5s)
+        const BUFFER_SIZE = Math.round(DELAY_SECONDS * FPS); // 83 frames (~6s actual)
         const CAPTURE_WIDTH = 1920;
         const CAPTURE_HEIGHT = 1080;
         const JPEG_QUALITY = 0.95;
