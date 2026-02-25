@@ -717,17 +717,28 @@
         // ─── TRIAL 5: Completion Screen ──────────────────────────────────
         const completeTrial = {
             type: jsPsychHtmlButtonResponse,
-            stimulus: `
-                <div style="text-align:center; padding:40px; background-color:white; min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                    <h2 style="font-size:36px; color:black;">All done!</h2>
-                    <p style="font-size:24px; color:black;">Please close this tab and return to the study.</p>
-                </div>
-            `,
+            stimulus: '<h2 style="font-size:36px; color:black;">All done!</h2><p style="font-size:24px; color:black;">Please close this tab and return to the study.</p>',
             choices: ['Close and return to study'],
             button_html: function(choice) { return '<button class="jspsych-btn" style="font-size:24px; padding:15px 30px; background-color:#4CAF50; color:white;">' + choice + '</button>'; },
             on_load: function() {
-                // Play the "all done" audio
+                // Make entire page white for this screen
+                document.getElementById('jspsych-target').style.backgroundColor = 'white';
+                document.body.style.backgroundColor = 'white';
+
+                // Play the "all done" audio at 3x volume
                 var alldone = document.getElementById('alldone');
+                alldone.volume = 1.0;
+                // Use AudioContext to amplify beyond 1.0
+                try {
+                    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    var source = audioCtx.createMediaElementSource(alldone);
+                    var gainNode = audioCtx.createGain();
+                    gainNode.gain.value = 3.0;
+                    source.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                } catch (e) {
+                    console.log('AudioContext not available, using default volume');
+                }
                 alldone.play().catch(function(e) { console.log('Alldone audio error:', e); });
             },
             on_finish: function() {
